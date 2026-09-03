@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Sora", "Inter", sans-serif;
+}
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  #root {
+    width: min(1040px, 100%);
+  }
+
+  body {
+    @apply m-0 flex min-h-screen items-center justify-center bg-[#080d16] p-8 font-sans text-[#f5f7fa];
+    background-image:
+      radial-gradient(circle at 12% 10%, rgba(57, 201, 138, 0.12), transparent 32%),
+      radial-gradient(circle at 90% 90%, rgba(214, 168, 79, 0.12), transparent 34%);
+  }
+
+  button svg {
+    @apply h-[1.1rem] w-[1.1rem] stroke-[2.2];
+  }
+}
+
+@keyframes dealCard {
+  from {
+    opacity: 0;
+    transform: translate(-120px, -100px) rotate(-35deg) scale(0.5);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(0) rotate(var(--rotation, 0deg)) scale(1);
+  }
+}
+
+@layer utilities {
+  .empty-card::before {
+    content: "◆";
+    @apply flex h-[116px] w-[78px] items-center justify-center rounded-[10px] border border-dashed border-[#d6a84f]/35 bg-[linear-gradient(145deg,rgba(214,168,79,0.06),rgba(255,255,255,0.015))] text-[1.8rem] font-normal text-[#d6a84f] opacity-55;
+  }
+
+  .empty-card-green::before {
+    content: "♣";
+    @apply border-[#39c98a]/35 bg-[linear-gradient(145deg,rgba(57,201,138,0.06),rgba(255,255,255,0.015))] text-[#39c98a];
+  }
+
+  @media (max-width: 640px) {
+    body {
+      @apply items-start p-3;
+    }
+
+    .empty-card::before {
+      @apply h-[102px] w-[68px];
+    }
+  }
+}
