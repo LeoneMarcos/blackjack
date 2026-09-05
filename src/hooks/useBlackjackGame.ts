@@ -145,10 +145,16 @@ export function useBlackjackGame() {
   }, []);
 
   useEffect(() => {
-    if (!state.npcActive || state.gameOver || !shouldBotHit(state.p1.score, state.p2.score)) return;
+    if (
+      !state.npcActive ||
+      state.gameOver ||
+      state.p1.cards.length === 0 ||
+      !shouldBotHit(state.p1.score, state.p2.score)
+    )
+      return;
     const timeout = window.setTimeout(() => dispatch({ type: 'draw', player: 'p2' }), 600);
     return () => window.clearTimeout(timeout);
-  }, [state.npcActive, state.gameOver, state.p1.score, state.p2.score]);
+  }, [state.npcActive, state.gameOver, state.p1.cards.length, state.p1.score, state.p2.score]);
 
   useEffect(() => {
     if (!state.notice) return;
