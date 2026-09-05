@@ -5,6 +5,7 @@ import path from 'node:path';
 const root = process.cwd();
 const input = path.join(root, 'showcase-assets', 'raw', 'blackjack-showcase-raw.webm');
 const output = path.join(root, 'showcase-assets', 'blackjack-showcase.mp4');
+const trimStartSeconds = Number(process.env.SHOWCASE_TRIM_START_SECONDS ?? '0.08');
 const executable = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
 const probeExecutable = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
 
@@ -26,6 +27,8 @@ await run(executable, [
   '-y',
   '-i',
   input,
+  '-vf',
+  `trim=start=${trimStartSeconds},setpts=PTS-STARTPTS`,
   '-c:v',
   'libx264',
   '-pix_fmt',
@@ -45,4 +48,4 @@ const metadata = await run(probeExecutable, [
   'json',
   output,
 ]);
-console.log(JSON.stringify({ input, output, metadata: JSON.parse(metadata) }));
+console.log(JSON.stringify({ input, output, trimStartSeconds, metadata: JSON.parse(metadata) }));

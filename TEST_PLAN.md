@@ -19,7 +19,7 @@
 
 `npm run test:e2e`: **PASS**, 3 tests passed in Chromium. The suite covers BOT response and replay, local keyboard controls, rules dialog recovery and score reset, plus the visual flow's round feedback.
 
-`npm run showcase:prepare`: **PASS**. Raw source: `showcase-assets/raw/blackjack-showcase-raw.webm`. Published candidate: `showcase-assets/blackjack-showcase.mp4`, H.264, yuv420p, 1440×900, 14.92 seconds, 353,554 bytes. Checkpoints are in `showcase-assets/screenshots/` and were visually inspected, including rules, BOT result, local cards, local result and a mid-video BOT-thinking frame.
+`npm run showcase:prepare`: **PASS**. Raw source: `showcase-assets/raw/blackjack-showcase-raw.webm`. The converter trims the first 0.08 seconds to remove the partially painted startup frame, then writes `showcase-assets/blackjack-showcase.mp4` as H.264, yuv420p, 1440×900, 14.84 seconds, 350,058 bytes. Checkpoints are in `showcase-assets/screenshots/` and were visually inspected, including rules, BOT result, local cards, local result and a mid-video BOT-thinking frame.
 
 `npm run showcase:publish`: **PASS**. GitHub accepted the attachment as `video/mp4`; the verified user-attachment URL is now in the local README Showcase section. The temporary upload issue was closed. The repository was not committed or pushed as part of this task.
 

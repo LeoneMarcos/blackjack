@@ -56,7 +56,7 @@ The interface uses a continuous charcoal card table, ivory playing cards, restra
 
 Watch the real browser flow in the showcase video:
 
-https://github.com/user-attachments/assets/783d473b-fc27-4f4b-9fcb-9ec55b1e4ade
+https://github.com/user-attachments/assets/76db2df1-9f5c-43e2-996c-249609628757
 
 ---
 
