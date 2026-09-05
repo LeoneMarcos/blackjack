@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/blackjack-icon.webp" alt="Blackjack icon" width="160" />
+  <img src="./public/blackjack-neutral.webp" alt="Blackjack icon" width="160" />
 </p>
 
 <h1 align="center">Blackjack</h1>
