@@ -1,0 +1,2 @@
+# Actual stack
+Existing React 19 / TypeScript 5.9 strict / Vite 7 / Tailwind 4 / Lucide React application, managed by npm and package-lock.json. Vitest 3, ESLint 9, Prettier 3 and Playwright 1.62 are already installed. Exact resolved versions are locked in package-lock.json; this change installs no dependencies. Google Fonts supplies Inter and Space Grotesk with system font fallbacks. No secrets required. User scope is UI/UX, so broader canonical stack/CI migration is deferred; see STACK.md for prior project context.

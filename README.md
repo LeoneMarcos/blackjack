@@ -12,8 +12,8 @@
   <a href="https://blackjack.leonemarcos.com/">
     <img src="https://img.shields.io/badge/Demo-Live-brightgreen?style=flat-square" alt="Live Demo" />
   </a>
-  <a href="https://github.com/LeoneMarcos/Veljack/actions/workflows/ci.yml">
-    <img src="https://github.com/LeoneMarcos/Veljack/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
+  <a href="https://github.com/LeoneMarcos/blackjack/actions/workflows/ci.yml">
+    <img src="https://github.com/LeoneMarcos/blackjack/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square" alt="Apache 2.0 License" />
@@ -41,13 +41,13 @@
 
 **Blackjack** is a lightweight 21 card game designed around a focused casino-style interface. Players can compete locally in a two-player mode or enable the BOT for an automated opponent, with the active game mode tracked through its own scoreboard.
 
-The interface combines a dark navy surface, gold and emerald player identities, Lucide icons, responsive layouts, animated cards, and a temporary round-result notification that keeps the game state visible without interrupting play.
+The interface uses a continuous charcoal card table, ivory playing cards, restrained typography, Lucide icons, responsive layouts, and inline round feedback that keeps the game visible.
 
 ### Highlights
 
 - **Two game modes** — Switch between local Player 1 vs Player 2 and Player 1 vs BOT matches.
 - **Mode-specific scoreboards** — Local and BOT victories are tracked independently.
-- **Responsive casino-style UI** — Dark navy panels, gold and emerald accents, animated cards, and responsive behavior.
+- **Responsive casino-style UI** — Neutral charcoal surfaces, ivory controls, animated cards, and responsive behavior.
 - **Clear game feedback** — A subtle, temporary notification communicates wins, ties, and busts without blocking the table.
 
 ---
@@ -56,7 +56,7 @@ The interface combines a dark navy surface, gold and emerald player identities, 
 
 Watch the real browser flow in the showcase video:
 
-https://github.com/user-attachments/assets/14c7734a-9a4b-46bd-97ab-2d58cb1e42d5
+https://github.com/user-attachments/assets/783d473b-fc27-4f4b-9fcb-9ec55b1e4ade
 
 ---
 
@@ -81,8 +81,8 @@ https://github.com/user-attachments/assets/14c7734a-9a4b-46bd-97ab-2d58cb1e42d5
 | Tooling | Vite |
 | Styling | Tailwind CSS 4 |
 | Icons | Lucide React |
-| Typography | Google Fonts: Inter and Sora |
-| Testing | Vitest |
+| Typography | Google Fonts: Inter and Space Grotesk |
+| Testing | Vitest, Playwright |
 | Quality | ESLint, Prettier, TypeScript strict mode |
 | CI | GitHub Actions |
 | Validation | Production build validation with Vite |
@@ -96,8 +96,8 @@ https://github.com/user-attachments/assets/14c7734a-9a4b-46bd-97ab-2d58cb1e42d5
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/LeoneMarcos/Veljack.git
-cd Blackjack
+git clone https://github.com/LeoneMarcos/blackjack.git
+cd blackjack
 ```
 
 ### 2. Install dependencies
@@ -122,7 +122,10 @@ npm run lint
 npm run typecheck
 npm run format:check
 npm run build
+npm run test:e2e
 ```
+
+The browser suite runs the critical BOT and local-player flows. To record the approved showcase flow, run `npm run showcase:prepare`; it starts Vite when needed, keeps the raw WebM, and produces a GitHub-compatible H.264 MP4. After reviewing the result, `npm run showcase:publish` uploads the attachment through GitHub CLI, verifies it, and updates the Showcase video link.
 
 ## License
 

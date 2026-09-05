@@ -1,0 +1,2 @@
+# Product scope
+Blackjack is a single-page local card game. The current change is UI/UX only: neutral immersive table, readable state, responsive controls and accessible rules. Existing 52-card rules, flexible aces, automatic BOT, separate mode scoreboards and 30-second rounds are preserved. Risk R1: local interaction, no account, payment or persistence. Acceptance: readable empty/playing/completed states, both modes usable, keyboard recovery, no horizontal overflow at 320/390/768/1440px. No publication or stack migration requested.

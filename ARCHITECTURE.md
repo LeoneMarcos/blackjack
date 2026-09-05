@@ -1,0 +1,2 @@
+# Architecture
+Vite renders a single React screen from src/main.tsx. App.tsx owns presentation and rules-dialog state; PlayerPanel and PlayingCard render game data. useBlackjackGame owns the existing reducer, BOT scheduling, timer and scoreboards. src/lib owns deck creation and pure rules. No API, auth, storage or server boundary. This UI refresh changes presentation, mode selection affordances and dialog keyboard isolation only. Existing deployment is outside scope; rollback consists of reverting the UI refresh while preserving prior local changes.

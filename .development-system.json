@@ -1,0 +1,10 @@
+{
+  "developmentSystemVersion": "2.1.0",
+  "designSystem": "immersive-experience",
+  "designSystemVersion": "1.0.0",
+  "complianceStatus": "NON-COMPLIANT",
+  "scope": "UI/UX refresh plus local E2E/showcase tooling; preserve existing game behavior",
+  "exceptions": [],
+  "pending": ["Full canonical stack migration and independent release gate are outside this request", "Full video playback, Lighthouse and axe audits not performed"],
+  "validation": "TEST_PLAN.md"
+}

@@ -3,4 +3,5 @@
 A polished browser-based Blackjack game built with React, TypeScript, Vite, and Tailwind CSS.
 
 - [Live demo](https://blackjack.leonemarcos.com/)
-- [Source repository](https://github.com/LeoneMarcos/Veljack)
+- [Source repository](https://github.com/LeoneMarcos/blackjack): Source code, documentation, tests, and deployment configuration.
+- [Showcase video](https://github.com/user-attachments/assets/783d473b-fc27-4f4b-9fcb-9ec55b1e4ade): Product walkthrough.
