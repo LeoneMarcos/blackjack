@@ -169,6 +169,9 @@
     background: var(--color-raised);
     color: var(--color-ink);
   }
+  .icon-button:active {
+    transform: translateY(1px);
+  }
   .timer-chip {
     display: flex;
     align-items: center;
@@ -263,19 +266,23 @@
   }
   .table-inscription {
     position: absolute;
-    z-index: -1;
+    z-index: 1;
     top: 42%;
     left: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
     color: #858a79;
     pointer-events: none;
+    background: var(--color-panel);
+    padding: 8px 16px;
+    border-radius: 9999px;
   }
   .table-inscription span {
     display: block;
     font-family: Georgia, serif;
     font-size: 44px;
     font-weight: 400;
+    line-height: 1;
   }
   .table-inscription small {
     display: block;
@@ -294,6 +301,9 @@
     color: var(--color-muted);
     font-size: 13px;
     text-align: center;
+  }
+  .game-status--bust {
+    color: var(--color-danger);
   }
   .status-dot {
     flex: 0 0 5px;
@@ -536,6 +546,7 @@
     width: min(520px, 100%);
     max-height: calc(100dvh - 32px);
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 32px;
     border: 1px solid var(--color-line);
     border-radius: 16px;
@@ -613,7 +624,7 @@
 }
 @media (max-width: 639px) {
   .app-shell {
-    padding: 24px 16px 0;
+    padding: 24px 16px max(24px, env(safe-area-inset-bottom, 24px));
   }
   .app-header {
     gap: 24px;
@@ -693,7 +704,12 @@
     text-align: center;
   }
   .rules-dialog {
-    padding: 24px;
+    padding: 20px 16px;
+  }
+  .rule-item {
+    grid-template-columns: 64px 1fr;
+    gap: 12px;
+    padding: 12px 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {

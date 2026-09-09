@@ -57,6 +57,7 @@ try {
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(1_500);
+  await checkpoint('hero');
 
   await page.getByRole('button', { name: 'View game rules' }).click();
   await page.waitForTimeout(2_000);
@@ -87,6 +88,18 @@ try {
   }
   await page.waitForTimeout(1_200);
   await checkpoint('local-result');
+
+  const mobileContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  const mobilePage = await mobileContext.newPage();
+  await mobilePage.goto(baseURL, { waitUntil: 'domcontentloaded' });
+  await mobilePage.evaluate(() => document.fonts.ready);
+  await mobilePage.waitForTimeout(1_000);
+  await mobilePage.screenshot({ path: path.join(screenshotsDir, 'blackjack-mobile.png') });
+  await mobileContext.close();
 } catch (error) {
   failure = error;
 } finally {

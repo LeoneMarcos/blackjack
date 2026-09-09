@@ -25,14 +25,15 @@ function getHandStatus(score: number, cardCount: number): string {
 function PlayingCard({ card }: { card: Card }) {
   const [rotation] = useState(() => (Math.random() * 6 - 3).toFixed(2));
   const cardColor = card.color === 'red' ? 'card--red' : 'card--black';
+  const cardTitle = card.name ? `${card.label} of ${card.name}` : `${card.label} of Cards`;
 
   return (
     <li
       className={`playing-card ${cardColor}`}
       style={{ '--rotation': `${rotation}deg` } as CSSProperties}
-      aria-label={`${card.label} of ${card.name}`}
+      aria-label={cardTitle}
     >
-      <div className="playing-card__corner">
+      <div className="playing-card__corner" aria-hidden="true">
         <span>{card.label}</span>
         <span>{card.symbol}</span>
       </div>
@@ -61,11 +62,21 @@ function RulesModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
     closeButtonRef.current?.focus();
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
 
-    return () => previousFocus?.focus();
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      previousFocus?.focus();
+    };
   }, []);
 
   const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+      return;
+    }
     if (event.key !== 'Tab') return;
 
     const focusable = Array.from(
@@ -324,7 +335,11 @@ function App() {
             Never over
           </small>
         </div>
-        <div className="game-status" role="status" aria-live="polite">
+        <div
+          className={`game-status ${state.p1.score > 21 || state.p2.score > 21 ? 'game-status--bust' : ''}`}
+          role="status"
+          aria-live="polite"
+        >
           <span
             className={`status-dot ${state.gameOver ? 'status-dot--complete' : ''}`}
             aria-hidden="true"
