@@ -62,15 +62,11 @@ The interface uses a continuous charcoal card table, ivory playing cards, restra
 
 ## Showcase
 
-[![Watch the Blackjack showcase](./showcase-assets/screenshots/blackjack-poster.png)](https://raw.githubusercontent.com/LeoneMarcos/blackjack/main/showcase-assets/blackjack-showcase.mp4)
+[![Blackjack animated showcase preview](./showcase-assets/showcase-preview.gif)](https://raw.githubusercontent.com/LeoneMarcos/blackjack/main/showcase-assets/blackjack-showcase.mp4)
 
-The current recording shows bot play, local two-player mode, and round feedback.
+The animated preview shows a short excerpt of bot play, local two-player mode, and round feedback. Open the full video below for the complete flow.
 
-*Showcase Media Assets:*
-- Canonical MP4: [showcase video](https://raw.githubusercontent.com/LeoneMarcos/blackjack/main/showcase-assets/blackjack-showcase.mp4) (H.264 / yuv420p)
-- Raw recording: [`showcase-assets/raw/blackjack-showcase-raw.webm`](./showcase-assets/raw/blackjack-showcase-raw.webm)
-- Desktop Hero: [`showcase-assets/screenshots/blackjack-hero.png`](./showcase-assets/screenshots/blackjack-hero.png)
-- Mobile View: [`showcase-assets/screenshots/blackjack-mobile.png`](./showcase-assets/screenshots/blackjack-mobile.png)
+[![Showcase Video](https://img.shields.io/badge/Showcase-Video-2f2f2f?style=flat-square&logo=github&logoColor=white)](https://raw.githubusercontent.com/LeoneMarcos/blackjack/main/showcase-assets/blackjack-showcase.mp4)
 
 ---
 
@@ -158,7 +154,7 @@ npm run build
 npm run test:e2e
 ```
 
-The browser suite runs the critical BOT and local-player flows. To record the approved showcase flow locally, run `npm run showcase:prepare`; it starts Vite when needed, keeps the raw WebM, and produces a GitHub-compatible H.264 MP4. The **Publish Showcase** workflow performs the same capture in GitHub Actions and refreshes the canonical MP4 on demand. The stable video URL is reused by the project README, profile, and portfolio.
+The browser suite runs the critical BOT and local-player flows. To record the approved showcase flow locally, run `npm run showcase:prepare`; it starts Vite when needed, keeps the raw WebM, and produces a GitHub-compatible H.264 MP4. The **Publish Showcase** workflow performs the same capture in GitHub Actions and regenerates the canonical MP4, screenshots, and short README GIF preview when relevant product/showcase inputs change; it can also be run manually.
 
 ---
 
