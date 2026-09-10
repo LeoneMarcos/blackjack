@@ -264,34 +264,6 @@
       inset 0 0 0 8px #35392f,
       0 24px 48px #00000020;
   }
-  .table-inscription {
-    position: absolute;
-    z-index: 1;
-    top: 42%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    color: #858a79;
-    pointer-events: none;
-    background: var(--color-panel);
-    padding: 8px 16px;
-    border-radius: 9999px;
-  }
-  .table-inscription span {
-    display: block;
-    font-family: Georgia, serif;
-    font-size: 44px;
-    font-weight: 400;
-    line-height: 1;
-  }
-  .table-inscription small {
-    display: block;
-    width: 120px;
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    line-height: 1.8;
-  }
   .game-status {
     display: flex;
     align-items: center;
@@ -617,9 +589,6 @@
   }
   .player-panel {
     padding-inline: 16px;
-  }
-  .table-inscription {
-    display: none;
   }
 }
 @media (max-width: 639px) {

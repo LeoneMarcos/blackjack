@@ -327,14 +327,6 @@ function App() {
       </div>
 
       <div className="table-surface">
-        <div className="table-inscription" aria-hidden="true">
-          <span>21</span>
-          <small>
-            Closest wins
-            <br />
-            Never over
-          </small>
-        </div>
         <div
           className={`game-status ${state.p1.score > 21 || state.p2.score > 21 ? 'game-status--bust' : ''}`}
           role="status"
