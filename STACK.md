@@ -81,13 +81,13 @@ Technical decisions should prioritize:
 | Layer          | Technology | Version | Purpose |
 | -------------- | ---------- | ------- | ------- |
 | Language       | TypeScript | `~5.9.3` declared; `5.9.3` installed | Typed application and game logic |
-| Frontend       | React | `^19.2.8` declared; `19.2.8` installed | Browser UI |
-| Styling        | Tailwind CSS plus project CSS | `^4.3.3` declared; `4.3.3` installed | Utility integration and design tokens/components |
+| Frontend       | React | `19.2.8` declared and installed | Browser UI |
+| Styling        | Tailwind CSS plus project CSS | `4.3.3` declared and installed | Utility integration and design tokens/components |
 | Backend        | None | N/A | Client-only application |
 | Database       | None | N/A | No persistent game data |
 | Authentication | None | N/A | No accounts or protected resources |
 | Validation     | TypeScript compiler and game tests | TypeScript `5.9.3`, Vitest `4.1.0` installed | Compile-time and behavior validation |
-| Testing        | Vitest; Playwright for E2E browser validation | Vitest `^4.1.0`, Playwright `^1.63.0` | Unit tests and end-to-end browser checks |
+| Testing        | Vitest; Playwright for E2E browser validation | Vitest `4.1.0`, Playwright `1.63.0` | Unit tests and end-to-end browser checks |
 | Hosting        | Static web host; provider not declared in repository | N/A | Serve Vite build output |
 | CI/CD          | GitHub Actions | Actions `checkout@v4`, `setup-node@v4` | Automated quality gates |
 | Monitoring     | None declared | N/A | No runtime monitoring integration |
@@ -148,7 +148,7 @@ Do not introduce an additional programming language for application logic withou
 
 **Framework:** React
 
-**Version:** `^19.2.8` declared; `19.2.8` installed in the lockfile.
+**Version:** `19.2.8` declared and installed in the lockfile.
 
 **Rendering strategy:** Client-only SPA rendered into `#root` with `createRoot`.
 
@@ -193,7 +193,7 @@ Do not introduce an additional programming language for application logic withou
 
 **Primary technology:** Tailwind CSS integration with project-specific CSS component classes and semantic tokens.
 
-**Version:** Tailwind CSS `^4.3.3` declared; `4.3.3` installed. `@tailwindcss/vite` is `^4.3.3` declared.
+**Version:** Tailwind CSS `4.3.3` declared and installed. `@tailwindcss/vite` is `4.3.3` declared.
 
 ## Component System
 
@@ -201,7 +201,7 @@ Do not introduce an additional programming language for application logic withou
 
 ## Icons
 
-**Library:** Lucide React `^1.39.0` declared; `1.39.0` installed.
+**Library:** Lucide React `1.39.0` declared and installed.
 
 ## Rules
 
@@ -426,7 +426,7 @@ No user identity, credentials, personal data, payment data, or persistent game h
 
 ## Unit Testing
 
-**Technology:** Vitest `^4.1.0` declared; `4.1.0` installed. Dom testing support is provided by `@testing-library/react` `16.3.3`, `@testing-library/dom` `10.4.1`, and `jsdom` `28.1.0`.
+**Technology:** Vitest `4.1.0` declared and installed. Dom testing support is provided by `@testing-library/react` `16.3.3`, `@testing-library/dom` `10.4.1`, and `jsdom` `28.1.0`.
 
 **Required:** Yes
 
@@ -438,7 +438,7 @@ No user identity, credentials, personal data, payment data, or persistent game h
 
 ## End-to-End Testing
 
-**Technology:** Playwright `^1.63.0` declared; `@playwright/test` `1.63.0` installed and executed in CI and local showcase/browser workflows.
+**Technology:** Playwright and `@playwright/test` `1.63.0` are declared and installed, and are executed in CI and local showcase/browser workflows.
 
 **Required:** Yes for the critical browser flows. `npm run test:e2e` runs the versioned Chromium suite in CI; the dedicated visual flow is available through `npm run test:e2e:visual-flow`. E2E testing is a permanent CI gate.
 
@@ -451,7 +451,7 @@ Critical flows that are actually tested:
 * BOT decision behavior (hitting when behind or tied under 17; staying on tie at or above 17 or when ahead).
 * Scoreboard independence and reset behavior.
 * App shell rendering and rules dialog open/close flow in `tests/App.test.tsx`.
-* Browser end-to-end flows in `tests/e2e/` for Chromium interactions and showcase verification.
+* Browser end-to-end coverage in `tests/e2e/blackjack.spec.ts` for the BOT round/deal-again flow and the local two-player keyboard/rules/reset flow.
 
 ## Rules
 
@@ -706,7 +706,7 @@ Responsible for:
 | 2026-09-03 | Use npm with the committed lockfile. | pnpm or yarn. | The repository already has npm scripts, CI cache, and `package-lock.json`. | One reproducible dependency workflow. |
 | 2026-09-03 | Keep Playwright as a development/browser-validation dependency. | Add a full E2E framework and CI suite immediately. | Browser validation and showcase capture are useful, but current critical domain coverage is supplied by Vitest. | Enables runtime checks without adding CI complexity prematurely. |
 | 2026-09-05 | Add `@playwright/test` and a focused browser suite plus a dedicated visual-flow capture command. | Keep only ad hoc browser scripts. | The refreshed UI needs repeatable BOT/local interaction coverage and a reproducible README showcase artifact. | `test:e2e` and `showcase:prepare` are now first-class local commands. |
-| 2026-09-06 | Integrate Playwright Chromium E2E testing into CI pipeline. | Run E2E tests only locally. | Automated E2E verification guarantees UI and interaction regressions are caught before merging to `main`. | `npm run test:e2e` is now a permanent CI gate. |
+| 2026-09-10 | Integrate Playwright Chromium E2E testing into CI as part of stack finalization. | Run E2E tests only locally. | Automated E2E verification checks the critical BOT and local two-player browser flows before merging to `main`. | `npm run test:e2e` is now a permanent CI gate. |
 
 ---
 
@@ -792,7 +792,7 @@ Audit performed on 2026-09-04 against the repository, package manifests, source,
 
 * [x] Critical game rules are covered by Vitest.
 * [x] Test framework matches the specification (Vitest 4.1.0, Playwright 1.63.0).
-* [x] Unit tests pass: 19 tests passed.
+* [x] Unit tests pass: 20 tests passed (19 game-logic tests plus `tests/App.test.tsx`).
 * [x] Type check and production build pass.
 * [x] Playwright Chromium E2E tests pass in CI.
 
