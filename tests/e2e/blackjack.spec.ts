@@ -9,10 +9,9 @@ test.describe('Blackjack critical browser flows', () => {
   test('loads, deals against the BOT, and starts a new round', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle('Blackjack');
-    await expect(page.getByRole('button', { name: 'Play against BOT', exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await expect(
+      page.getByRole('button', { name: 'Play against BOT', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
 
     const playerOne = page.getByRole('button', { name: 'Draw card for Player 1', exact: true });
     await playerOne.click();
@@ -25,10 +24,14 @@ test.describe('Blackjack critical browser flows', () => {
       await page.getByRole('button', { name: 'Draw card for Player 1', exact: true }).click();
       await page.waitForTimeout(650);
     }
-    await expect.poll(() => page.getByRole('status').innerText()).toMatch(/won|tied|round complete/i);
+    await expect
+      .poll(() => page.getByRole('status').innerText())
+      .toMatch(/won|tied|round complete/i);
 
     await page.getByRole('button', { name: 'Deal again for Player 1', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Draw card for Player 1', exact: true })).toBeEnabled();
+    await expect(
+      page.getByRole('button', { name: 'Draw card for Player 1', exact: true }),
+    ).toBeEnabled();
   });
 
   test('switches to local play, supports keyboard controls, rules, and reset', async ({ page }) => {

@@ -34,7 +34,9 @@ test.describe('Blackjack showcase flow', () => {
       await page.getByRole('button', { name: new RegExp(`card for Player ${player}`) }).click();
       await page.waitForTimeout(650);
     }
-    await expect.poll(() => page.getByRole('status').innerText()).toMatch(/won|tied|round complete/i);
+    await expect
+      .poll(() => page.getByRole('status').innerText())
+      .toMatch(/won|tied|round complete/i);
     await page.waitForTimeout(1_500);
   });
 });
