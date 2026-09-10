@@ -24,8 +24,8 @@
   <img src="https://img.shields.io/badge/React-19-149eca?style=flat-square&logo=react&logoColor=white" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5.9" />
   <img src="https://img.shields.io/badge/Vite-7-646cff?style=flat-square&logo=vite&logoColor=white" alt="Vite 7" />
-  <img src="https://img.shields.io/badge/Vitest-3-6e9f18?style=flat-square&logo=vitest&logoColor=white" alt="Vitest 3" />
-  <img src="https://img.shields.io/badge/Playwright-1.62-45ba4b?style=flat-square&logo=playwright&logoColor=white" alt="Playwright" />
+  <img src="https://img.shields.io/badge/Vitest-4-6e9f18?style=flat-square&logo=vitest&logoColor=white" alt="Vitest 4" />
+  <img src="https://img.shields.io/badge/Playwright-1.63-45ba4b?style=flat-square&logo=playwright&logoColor=white" alt="Playwright" />
 </p>
 
 <p align="center">
@@ -105,8 +105,8 @@ The project is structured as a client-only single-page application built with Re
 | Styling | Tailwind CSS 4 |
 | Icons | Lucide React |
 | Typography | Google Fonts: Inter and Space Grotesk |
-| Testing | Vitest 3, Playwright 1.62 |
-| Quality | ESLint 9, Prettier 3, TypeScript strict mode |
+| Testing | Vitest 4, Playwright 1.63 |
+| Quality | ESLint 10, Prettier 3, TypeScript strict mode |
 | CI | GitHub Actions |
 | Validation | Production build validation with Vite |
 
