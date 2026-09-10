@@ -10,13 +10,13 @@
 
 <p align="center">
   <a href="https://blackjack.leonemarcos.com/">
-    <img src="https://img.shields.io/badge/Demo-Live-brightgreen?style=flat-square" alt="Live Demo" />
+    <img src="https://img.shields.io/badge/Demo-Live-2f2f2f?style=flat-square&logo=googlechrome&logoColor=white" alt="Live Demo" />
   </a>
   <a href="https://github.com/LeoneMarcos/blackjack/actions/workflows/ci.yml">
-    <img src="https://github.com/LeoneMarcos/blackjack/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
+    <img src="https://img.shields.io/github/actions/workflow/status/LeoneMarcos/blackjack/ci.yml?branch=main&style=flat-square&label=CI&logo=githubactions&logoColor=white" alt="CI" />
   </a>
-  <a href="LICENSE">
-    <img src="https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square" alt="Apache 2.0 License" />
+  <a href="https://github.com/LeoneMarcos/blackjack/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/License-Apache%202.0-2f2f2f?style=flat-square" alt="Apache 2.0 License" />
   </a>
 </p>
 
@@ -24,8 +24,9 @@
   <img src="https://img.shields.io/badge/React-19-149eca?style=flat-square&logo=react&logoColor=white" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5.9" />
   <img src="https://img.shields.io/badge/Vite-7-646cff?style=flat-square&logo=vite&logoColor=white" alt="Vite 7" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-4-06b6d4?style=flat-square&logo=tailwindcss&logoColor=white" alt="Tailwind CSS 4" />
   <img src="https://img.shields.io/badge/Vitest-4-6e9f18?style=flat-square&logo=vitest&logoColor=white" alt="Vitest 4" />
-  <img src="https://img.shields.io/badge/Playwright-1.63-45ba4b?style=flat-square&logo=playwright&logoColor=white" alt="Playwright" />
+  <img src="https://img.shields.io/badge/Playwright-1.63-2ead33?style=flat-square&logo=playwright&logoColor=white" alt="Playwright 1.63" />
 </p>
 
 <p align="center">
