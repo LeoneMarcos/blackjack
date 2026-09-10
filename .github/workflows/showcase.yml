@@ -5,6 +5,12 @@ on:
   push:
     branches: [main]
     paths:
+      - "src/**"
+      - "public/**"
+      - "showcase-assets/capture-showcase.mjs"
+      - "showcase-assets/convert-showcase.mjs"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/showcase.yml"
 
 permissions:
@@ -33,6 +39,12 @@ jobs:
         env:
           SHOWCASE_HEADLESS: 1
         run: npm run showcase:prepare
+      - name: Generate README GIF preview
+        run: |
+          ffmpeg -y -ss 1 -t 8 \
+            -i showcase-assets/blackjack-showcase.mp4 \
+            -filter_complex "[0:v]fps=8,scale=720:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=bayer:bayer_scale=5" \
+            -loop 0 showcase-assets/showcase-preview.gif
       - name: Upload showcase evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -40,13 +52,14 @@ jobs:
           name: blackjack-showcase-${{ github.run_id }}
           path: |
             showcase-assets/blackjack-showcase.mp4
+            showcase-assets/showcase-preview.gif
             showcase-assets/raw/
             showcase-assets/screenshots/
           if-no-files-found: warn
           retention-days: 7
       - name: Publish canonical media to main
         run: |
-          git add showcase-assets/blackjack-showcase.mp4 showcase-assets/screenshots/
+          git add showcase-assets/blackjack-showcase.mp4 showcase-assets/showcase-preview.gif showcase-assets/screenshots/
           if git diff --cached --quiet; then
             echo "Canonical showcase is already current."
             exit 0
