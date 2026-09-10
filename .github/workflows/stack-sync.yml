@@ -1,0 +1,63 @@
+name: Stack Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - .github/workflows/stack-sync.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stack-sync-blackjack
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Refresh dependency lock
+        run: npm install --package-lock-only
+
+      - name: Install synchronized dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Check types
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Commit synchronized lockfile
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already synchronized"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore(stack): synchronize dependency lock"
+          git push origin HEAD:main
