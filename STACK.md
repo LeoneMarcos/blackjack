@@ -81,13 +81,13 @@ Technical decisions should prioritize:
 | Layer          | Technology | Version | Purpose |
 | -------------- | ---------- | ------- | ------- |
 | Language       | TypeScript | `~5.9.3` declared; `5.9.3` installed | Typed application and game logic |
-| Frontend       | React | `^19.2.0` declared; `19.2.8` installed | Browser UI |
+| Frontend       | React | `^19.2.8` declared; `19.2.8` installed | Browser UI |
 | Styling        | Tailwind CSS plus project CSS | `^4.3.3` declared; `4.3.3` installed | Utility integration and design tokens/components |
 | Backend        | None | N/A | Client-only application |
 | Database       | None | N/A | No persistent game data |
 | Authentication | None | N/A | No accounts or protected resources |
-| Validation     | TypeScript compiler and game tests | TypeScript `5.9.3`, Vitest `3.2.7` installed | Compile-time and behavior validation |
-| Testing        | Vitest; Playwright available for browser validation | Vitest `^3.2.4`, Playwright `^1.62.1` | Unit tests and runtime checks |
+| Validation     | TypeScript compiler and game tests | TypeScript `5.9.3`, Vitest `4.1.0` installed | Compile-time and behavior validation |
+| Testing        | Vitest; Playwright for E2E browser validation | Vitest `^4.1.0`, Playwright `^1.63.0` | Unit tests and end-to-end browser checks |
 | Hosting        | Static web host; provider not declared in repository | N/A | Serve Vite build output |
 | CI/CD          | GitHub Actions | Actions `checkout@v4`, `setup-node@v4` | Automated quality gates |
 | Monitoring     | None declared | N/A | No runtime monitoring integration |
@@ -148,7 +148,7 @@ Do not introduce an additional programming language for application logic withou
 
 **Framework:** React
 
-**Version:** `^19.2.0` declared; `19.2.8` installed in the lockfile.
+**Version:** `^19.2.8` declared; `19.2.8` installed in the lockfile.
 
 **Rendering strategy:** Client-only SPA rendered into `#root` with `createRoot`.
 
@@ -156,7 +156,7 @@ Do not introduce an additional programming language for application logic withou
 
 **Tool:** Vite
 
-**Version:** `^7.2.4` declared; `7.3.6` installed in the lockfile.
+**Version:** `^7.2.4` declared; `7.2.4` installed in the lockfile.
 
 ## Routing
 
@@ -201,7 +201,7 @@ Do not introduce an additional programming language for application logic withou
 
 ## Icons
 
-**Library:** Lucide React `^0.562.0` declared; `0.562.0` installed.
+**Library:** Lucide React `^1.39.0` declared; `1.39.0` installed.
 
 ## Rules
 
@@ -426,31 +426,32 @@ No user identity, credentials, personal data, payment data, or persistent game h
 
 ## Unit Testing
 
-**Technology:** Vitest `^3.2.4` declared; `3.2.7` installed.
+**Technology:** Vitest `^4.1.0` declared; `4.1.0` installed. Dom testing support is provided by `@testing-library/react` `16.3.3`, `@testing-library/dom` `10.4.1`, and `jsdom` `28.1.0`.
 
 **Required:** Yes
 
 ## Component Testing
 
-**Technology:** None currently configured. Component behavior is validated through browser checks and TypeScript/lint checks.
+**Technology:** React testing library with jsdom (`App.test.tsx`). Component behavior is also validated through browser checks and TypeScript/lint checks.
 
 **Required:** No, unless component interaction complexity grows.
 
 ## End-to-End Testing
 
-**Technology:** Playwright `^1.62.1` declared; `1.62.1` installed and used by showcase/browser validation scripts.
+**Technology:** Playwright `^1.63.0` declared; `@playwright/test` `1.63.0` installed and executed in CI and local showcase/browser workflows.
 
-**Required:** Yes for the critical browser flows. `npm run test:e2e` runs the versioned Chromium suite; the dedicated visual flow is available through `npm run test:e2e:visual-flow`. A CI E2E job remains deferred.
+**Required:** Yes for the critical browser flows. `npm run test:e2e` runs the versioned Chromium suite in CI; the dedicated visual flow is available through `npm run test:e2e:visual-flow`. E2E testing is a permanent CI gate.
 
 ## Minimum Critical Coverage
 
-Critical flows that must be tested:
+Critical flows that are actually tested:
 
-* Blackjack hand scoring, including flexible Ace values.
-* Bust and winner resolution, including ties.
-* BOT decision behavior.
+* Blackjack hand scoring in `tests/game-logic.test.ts`, including flexible Ace values (downgrading from 11 to 1) and handling multiple Aces.
+* Bust detection and round outcome / winner resolution (`p1`, `p2`, `tie`, and immediate winners).
+* BOT decision behavior (hitting when behind or tied under 17; staying on tie at or above 17 or when ahead).
 * Scoreboard independence and reset behavior.
-* Browser smoke flow for drawing cards, changing mode, opening rules, keyboard controls, and responsive layout.
+* App shell rendering and rules dialog open/close flow in `tests/App.test.tsx`.
+* Browser end-to-end flows in `tests/e2e/` for Chromium interactions and showcase verification.
 
 ## Rules
 
@@ -462,11 +463,11 @@ Tests should prioritize game behavior and critical browser flows rather than arb
 
 ## Linting
 
-**Technology:** ESLint 9 with `typescript-eslint`, React Hooks, and React Refresh plugins.
+**Technology:** ESLint `10.10.0` with `@eslint/js` `10.0.1`, `typescript-eslint` `8.70.0`, `eslint-plugin-react-hooks` `7.1.1`, and `eslint-plugin-react-refresh` `0.5.6`.
 
 ## Formatting
 
-**Technology:** Prettier 3
+**Technology:** Prettier `3.9.6`
 
 ## Type Checking
 
@@ -489,13 +490,15 @@ Tests should prioritize game behavior and critical browser flows rather than arb
 
 ## Required Checks
 
-* [x] Install dependencies with `npm ci`
-* [x] Formatting check
-* [x] Lint
-* [x] Type check
-* [x] Unit tests
-* [x] Production build
-* [ ] Dedicated E2E tests in CI
+* [x] Install dependencies with strict `npm ci`
+* [x] Audit production dependencies (`npm audit --omit=dev --audit-level=high`)
+* [x] Formatting check (`npm run format:check`)
+* [x] Lint (`npm run lint`)
+* [x] Type check (`npm run typecheck`)
+* [x] Unit tests (`npm test`)
+* [x] Production build (`npm run build`)
+* [x] Install Playwright Chromium (`npx playwright install --with-deps chromium`)
+* [x] Dedicated E2E tests in CI (`npm run test:e2e`)
 * [ ] Deployment from this workflow
 
 ## Deployment Strategy
@@ -702,7 +705,8 @@ Responsible for:
 | 2026-09-03 | Use Vite for the SPA build. | Next.js or another full-stack framework. | The product has one client-rendered screen and no SSR/API requirement. | Fast local development and static output. |
 | 2026-09-03 | Use npm with the committed lockfile. | pnpm or yarn. | The repository already has npm scripts, CI cache, and `package-lock.json`. | One reproducible dependency workflow. |
 | 2026-09-03 | Keep Playwright as a development/browser-validation dependency. | Add a full E2E framework and CI suite immediately. | Browser validation and showcase capture are useful, but current critical domain coverage is supplied by Vitest. | Enables runtime checks without adding CI complexity prematurely. |
-| 2026-09-05 | Add `@playwright/test` and a focused browser suite plus a dedicated visual-flow capture command. | Keep only ad hoc browser scripts. | The refreshed UI needs repeatable BOT/local interaction coverage and a reproducible README showcase artifact. | `test:e2e` and `showcase:prepare` are now first-class local commands; CI integration remains a later decision. |
+| 2026-09-05 | Add `@playwright/test` and a focused browser suite plus a dedicated visual-flow capture command. | Keep only ad hoc browser scripts. | The refreshed UI needs repeatable BOT/local interaction coverage and a reproducible README showcase artifact. | `test:e2e` and `showcase:prepare` are now first-class local commands. |
+| 2026-09-06 | Integrate Playwright Chromium E2E testing into CI pipeline. | Run E2E tests only locally. | Automated E2E verification guarantees UI and interaction regressions are caught before merging to `main`. | `npm run test:e2e` is now a permanent CI gate. |
 
 ---
 
@@ -787,16 +791,16 @@ Audit performed on 2026-09-04 against the repository, package manifests, source,
 ## Testing
 
 * [x] Critical game rules are covered by Vitest.
-* [x] Test framework matches the specification.
+* [x] Test framework matches the specification (Vitest 4.1.0, Playwright 1.63.0).
 * [x] Unit tests pass: 19 tests passed.
 * [x] Type check and production build pass.
-* [x] Browser smoke validation passed for draw, rules dialog, keyboard Escape, mobile overflow, and crawler-file responses.
+* [x] Playwright Chromium E2E tests pass in CI.
 
 ## Infrastructure
 
 * [ ] Hosting provider is explicitly documented.
 * [x] CI validation flow matches the specification.
-* [x] CI checks include format, lint, typecheck, test, and build.
+* [x] CI checks include strict npm ci, audit, format, lint, typecheck, unit tests, build, Playwright Chromium install, and test:e2e.
 * [x] No environment variables require deployment documentation.
 
 ## Architecture
@@ -820,7 +824,6 @@ Audit performed on 2026-09-04 against the repository, package manifests, source,
 | Area | Specification | Implementation | Severity | Action |
 | ---- | ------------- | -------------- | -------- | ------ |
 | Hosting | A production static host should be declared. | The repository documents `https://blackjack.leonemarcos.com/`, but not the hosting provider or deployment configuration. | Low | Document the provider and deployment trigger when that information is available. |
-| End-to-end CI | Critical browser flows should be repeatable. | Playwright suite and npm E2E commands exist; CI does not yet install browsers or run the suite. | Low | Add a focused CI job if browser regression risk justifies the maintenance cost. |
 | Monitoring | Production errors should be diagnosable. | No monitoring or error-tracking service is declared for this static game. | Low | Reassess if the product gains meaningful production traffic or persistent user workflows. |
 
 ## Unnecessary Complexity
@@ -831,16 +834,14 @@ Audit performed on 2026-09-04 against the repository, package manifests, source,
 ## Missing Documentation
 
 * Static hosting provider and deployment configuration are not present in the repository.
-* Browser smoke validation is not yet a first-class CI gate.
 
 ## Technical Debt
 
 * The project does not pin a local Node.js version file; CI provides the authoritative tooling version.
-* Browser smoke validation is not yet a first-class CI gate.
 
 ## Conclusion
 
-The repository conforms to its declared client-only React/Vite stack. Build, lint, formatting, type checking, unit tests, and browser smoke validation passed. The remaining low-severity warnings concern external hosting ownership, optional browser regression automation, and production monitoring that are not required for the current local game architecture.
+The repository conforms to its declared client-only React/Vite stack. Build, lint, formatting, type checking, unit tests, and Playwright Chromium E2E tests passed. The remaining low-severity warnings concern external hosting ownership and production monitoring that are not required for the current local game architecture.
 
 ---
 
