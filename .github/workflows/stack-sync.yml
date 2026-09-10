@@ -35,9 +35,9 @@ jobs:
       - name: Rebuild dependency lock from manifest
         run: |
           rm -f package-lock.json
-          npm install --package-lock-only
+          npm install --package-lock-only --legacy-peer-deps
 
-      - name: Install synchronized dependencies
+      - name: Install synchronized dependencies with strict peer resolution
         run: npm ci
 
       - name: Run lint
