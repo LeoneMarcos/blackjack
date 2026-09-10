@@ -32,8 +32,10 @@ jobs:
           node-version: 22.x
           cache: npm
 
-      - name: Refresh dependency lock
-        run: npm install --package-lock-only
+      - name: Rebuild dependency lock from manifest
+        run: |
+          rm -f package-lock.json
+          npm install --package-lock-only
 
       - name: Install synchronized dependencies
         run: npm ci
