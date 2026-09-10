@@ -38,7 +38,8 @@ if (!(await isServerReady())) {
   if (!(await isServerReady())) throw new Error(`Vite did not become ready at ${baseURL}`);
 }
 
-const browser = await chromium.launch({ channel: 'chrome', headless: false });
+const headless = process.env.CI === 'true' || process.env.CI === '1' || process.env.SHOWCASE_HEADLESS === '1';
+const browser = await chromium.launch({ headless });
 const context = await browser.newContext({
   viewport: { width: 1440, height: 900 },
   recordVideo: { dir: rawDir, size: { width: 1440, height: 900 } },

@@ -15,7 +15,6 @@
     "showcase:capture": "node showcase-assets/capture-showcase.mjs",
     "showcase:convert": "node showcase-assets/convert-showcase.mjs",
     "showcase:prepare": "npm run showcase:capture && npm run showcase:convert",
-    "showcase:publish": "node showcase-assets/publish-showcase.mjs",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

@@ -62,12 +62,12 @@ The interface uses a continuous charcoal card table, ivory playing cards, restra
 
 ## Showcase
 
-[![Watch the Blackjack showcase](./showcase-assets/screenshots/blackjack-poster.png)](./showcase-assets/blackjack-showcase.mp4)
+[![Watch the Blackjack showcase](./showcase-assets/screenshots/blackjack-poster.png)](https://raw.githubusercontent.com/LeoneMarcos/blackjack/main/showcase-assets/blackjack-showcase.mp4)
 
 The current recording shows bot play, local two-player mode, and round feedback.
 
 *Showcase Media Assets:*
-- Primary MP4: [`showcase-assets/blackjack-showcase.mp4`](./showcase-assets/blackjack-showcase.mp4) (H.264 / yuv420p, 18.4s)
+- Canonical MP4: [showcase video](https://raw.githubusercontent.com/LeoneMarcos/blackjack/main/showcase-assets/blackjack-showcase.mp4) (H.264 / yuv420p)
 - Raw recording: [`showcase-assets/raw/blackjack-showcase-raw.webm`](./showcase-assets/raw/blackjack-showcase-raw.webm)
 - Desktop Hero: [`showcase-assets/screenshots/blackjack-hero.png`](./showcase-assets/screenshots/blackjack-hero.png)
 - Mobile View: [`showcase-assets/screenshots/blackjack-mobile.png`](./showcase-assets/screenshots/blackjack-mobile.png)
@@ -158,7 +158,7 @@ npm run build
 npm run test:e2e
 ```
 
-The browser suite runs the critical BOT and local-player flows. To record the approved showcase flow, run `npm run showcase:prepare`; it starts Vite when needed, keeps the raw WebM, and produces a GitHub-compatible H.264 MP4. Commit the reviewed MP4 and screenshots with the release so the relative media links stay synchronized with the code.
+The browser suite runs the critical BOT and local-player flows. To record the approved showcase flow locally, run `npm run showcase:prepare`; it starts Vite when needed, keeps the raw WebM, and produces a GitHub-compatible H.264 MP4. The **Publish Showcase** workflow performs the same capture in GitHub Actions and refreshes the canonical MP4 on demand. The stable video URL is reused by the project README, profile, and portfolio.
 
 ---
 

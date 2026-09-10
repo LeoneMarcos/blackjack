@@ -1,0 +1,53 @@
+name: Publish Showcase
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: blackjack-showcase
+  cancel-in-progress: true
+
+jobs:
+  showcase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Ensure FFmpeg is available
+        run: command -v ffmpeg >/dev/null || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Capture canonical showcase
+        env:
+          SHOWCASE_HEADLESS: 1
+        run: npm run showcase:prepare
+      - name: Upload showcase evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blackjack-showcase-${{ github.run_id }}
+          path: |
+            showcase-assets/blackjack-showcase.mp4
+            showcase-assets/raw/
+            showcase-assets/screenshots/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Publish canonical media to main
+        run: |
+          git add showcase-assets/blackjack-showcase.mp4 showcase-assets/screenshots/
+          if git diff --cached --quiet; then
+            echo "Canonical showcase is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(showcase): refresh canonical media"
+          git push origin HEAD:main
