@@ -560,10 +560,7 @@ function handleDrawCompat(state: GameState, player: PlayerId): GameState {
   return handleHit(state, player);
 }
 
-function createIdleState(
-  scoreboards: Scoreboards,
-  npcActive: boolean,
-): GameState {
+function createIdleState(scoreboards: Scoreboards, npcActive: boolean): GameState {
   return {
     dealer: { cards: [], score: 0 },
     p1: { cards: [], score: 0 },
