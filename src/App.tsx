@@ -10,6 +10,7 @@ import { useBlackjackGame } from './hooks/useBlackjackGame';
 import {
   calculateVisibleHandValue,
   getStationOutcomes,
+  isBlackjack,
   type Card,
   type StationOutcome,
 } from './lib/game-logic';
