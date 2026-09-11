@@ -48,8 +48,62 @@ const page = await context.newPage();
 const video = page.video();
 let failure;
 
-const statusIsComplete = async () =>
-  /won|tied|round complete/i.test(await page.getByRole('status').innerText());
+const isRoundComplete = async () => {
+  try {
+    const dealAgain = page.getByRole('button', { name: 'Deal again for Player 1', exact: true });
+    if (await dealAgain.isVisible()) return true;
+    const badgeCount = await page.locator('.outcome-badge').count();
+    if (badgeCount > 0) return true;
+    const status = await page.getByRole('status').innerText();
+    return /won|tied|round complete|both players busted|dealer busted/i.test(status);
+  } catch {
+    return false;
+  }
+};
+
+const waitForRoundComplete = async (timeoutMs = 12_000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await isRoundComplete()) return true;
+    await page.waitForTimeout(250);
+  }
+  return isRoundComplete();
+};
+
+const getPlayerScore = async (playerLabel) => {
+  try {
+    const text = await page.getByLabel(`${playerLabel} score`).innerText();
+    const match = text.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const playHand = async (playerLabel) => {
+  const hitBtn = page.getByRole('button', { name: `Draw card for ${playerLabel}`, exact: true });
+  const standBtn = page.getByRole('button', { name: `Stand for ${playerLabel}`, exact: true });
+
+  for (let step = 0; step < 5; step += 1) {
+    if (await isRoundComplete()) break;
+    const canStand = await standBtn.isEnabled().catch(() => false);
+    if (!canStand) break;
+
+    const score = await getPlayerScore(playerLabel);
+    const canHit = await hitBtn.isEnabled().catch(() => false);
+
+    if (score < 17 && canHit) {
+      await hitBtn.click();
+      await page.waitForTimeout(800);
+    } else if (canStand) {
+      await standBtn.click();
+      await page.waitForTimeout(800);
+      break;
+    } else {
+      break;
+    }
+  }
+};
 
 const checkpoint = (name) =>
   page.screenshot({ path: path.join(screenshotsDir, `blackjack-${name}.png`) });
@@ -66,28 +120,46 @@ try {
   await page.getByRole('button', { name: 'Continue playing', exact: true }).click();
   await page.waitForTimeout(1_000);
 
-  for (let turn = 0; turn < 8 && !(await statusIsComplete()); turn += 1) {
-    await page.getByRole('button', { name: /card for Player 1/ }).click();
-    await page.waitForTimeout(750);
-  }
-  await page.waitForTimeout(500);
+  // Take 2 — BOT gameplay
+  const p1BotDealBtn = page.getByRole('button', { name: 'Draw card for Player 1', exact: true });
+  await p1BotDealBtn.click();
+  await page.waitForTimeout(1_200);
+
+  await playHand('Player 1');
+  await waitForRoundComplete();
+  await page.waitForTimeout(1_000);
   await checkpoint('bot-round');
 
+  // Take 3 — Sequential Two Players gameplay
   await page.getByRole('button', { name: 'Two players', exact: true }).click();
   await page.waitForTimeout(1_000);
   await checkpoint('local-empty');
-  await page.keyboard.press('1');
-  await page.waitForTimeout(750);
-  await page.keyboard.press('2');
-  await page.waitForTimeout(1_000);
+
+  // Start round through the real UI
+  const p1LocalDealBtn = page.getByRole('button', { name: 'Draw card for Player 1', exact: true });
+  await p1LocalDealBtn.click();
+  await page.waitForTimeout(1_200);
+
+  // Capture in-round state while the Dealer hole card is still hidden
   await checkpoint('local-cards');
 
-  for (let turn = 0; turn < 10 && !(await statusIsComplete()); turn += 1) {
-    const player = turn % 2 === 0 ? '1' : '2';
-    await page.getByRole('button', { name: new RegExp(`card for Player ${player}`) }).click();
-    await page.waitForTimeout(700);
+  // Sequential play: complete Player 1 hand first
+  await playHand('Player 1');
+  await page.waitForTimeout(500);
+
+  // Sequential play: complete Player 2 hand only when Player 2 is actually active
+  const p2StandBtn = page.getByRole('button', { name: 'Stand for Player 2', exact: true });
+  for (let i = 0; i < 20; i += 1) {
+    if (await isRoundComplete()) break;
+    if (await p2StandBtn.isEnabled().catch(() => false)) break;
+    await page.waitForTimeout(100);
   }
-  await page.waitForTimeout(1_200);
+  await playHand('Player 2');
+  await page.waitForTimeout(500);
+
+  // Dealer autoplay plays and reveals hole card
+  await waitForRoundComplete();
+  await page.waitForTimeout(1_500);
   await checkpoint('local-result');
 
   const mobileContext = await browser.newContext({
