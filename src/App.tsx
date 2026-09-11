@@ -541,14 +541,13 @@ function App() {
       if (rulesOpen) return;
 
       const target = event.target;
-      if (
+      const isInteractiveTarget =
         target instanceof HTMLElement &&
-        target.closest(
+        !!target.closest(
           'button, a, input, textarea, select, [contenteditable="true"], [role="button"]',
-        )
-      ) {
-        return;
-      }
+        );
+      const isNativeActivationKey = event.key === 'Enter' || event.code === 'Space';
+      if (isInteractiveTarget && isNativeActivationKey) return;
 
       const key = event.key.toLowerCase();
       if (key === 'r') {
