@@ -30,9 +30,11 @@ The beginning before the rules modal may be shortened in the edit so the rules a
 ### Take 3 — Local Player 1 vs Player 2
 
 1. Select `Two players`.
-2. Use keyboard `1` and `2` once to reveal both hands.
-3. Alternate clicks between Player 1 and Player 2 until the round ends.
-4. Keep the winner/loser notice visible, then end the recording.
+2. Deal the round through the primary deal button in the UI.
+3. Player 1 completes their hand sequentially (hit / stand) while Player 2 waits.
+4. Player 2 completes their hand sequentially once active.
+5. Dealer autoplay draws to 17+ or busts and reveals the hole card.
+6. Keep the final result visible, then end the recording.
 
 ## Commands
 
