@@ -7,6 +7,7 @@ import {
   shouldBotHit,
   type Card,
   type Scoreboards,
+  type VisibilityMode,
   type Winner,
 } from '../lib/game-logic';
 import { createDeck } from '../lib/deck';
@@ -29,6 +30,7 @@ export interface GameState {
   deck: Card[];
   timer: number;
   npcActive: boolean;
+  visibilityMode: VisibilityMode;
   scoreboards: Scoreboards;
   gameOver: boolean;
   notice: RoundNotice | null;
@@ -38,16 +40,22 @@ type Action =
   | { type: 'draw'; player: PlayerId }
   | { type: 'tick' }
   | { type: 'toggle-npc' }
+  | { type: 'set-visibility-mode'; mode: VisibilityMode }
   | { type: 'reset-scores' }
   | { type: 'dismiss-notice' };
 
-function createRound(scoreboards: Scoreboards, npcActive: boolean): GameState {
+function createRound(
+  scoreboards: Scoreboards,
+  npcActive: boolean,
+  visibilityMode: VisibilityMode = 'classic',
+): GameState {
   return {
     p1: { cards: [], score: 0 },
     p2: { cards: [], score: 0 },
     deck: createDeck(),
     timer: 30,
     npcActive,
+    visibilityMode,
     scoreboards,
     gameOver: false,
     notice: null,
@@ -55,7 +63,7 @@ function createRound(scoreboards: Scoreboards, npcActive: boolean): GameState {
 }
 
 function createInitialState(): GameState {
-  return createRound(createScoreboards(), true);
+  return createRound(createScoreboards(), true, 'classic');
 }
 
 function createNotice(
@@ -97,7 +105,9 @@ function finishRound(state: GameState, manualWinner?: Winner): GameState {
 }
 
 function draw(state: GameState, player: PlayerId): GameState {
-  const workingState = state.gameOver ? createRound(state.scoreboards, state.npcActive) : state;
+  const workingState = state.gameOver
+    ? createRound(state.scoreboards, state.npcActive, state.visibilityMode)
+    : state;
   const deck = workingState.deck.length > 0 ? workingState.deck : createDeck();
   const card = deck[deck.length - 1];
   if (!card) return workingState;
@@ -126,9 +136,11 @@ function reducer(state: GameState, action: Action): GameState {
       return { ...state, timer: state.timer - 1 };
     }
     case 'toggle-npc':
-      return createRound(state.scoreboards, !state.npcActive);
+      return createRound(state.scoreboards, !state.npcActive, state.visibilityMode);
+    case 'set-visibility-mode':
+      return createRound(state.scoreboards, state.npcActive, action.mode);
     case 'reset-scores':
-      return createRound(createScoreboards(), state.npcActive);
+      return createRound(createScoreboards(), state.npcActive, state.visibilityMode);
     case 'dismiss-notice':
       return { ...state, notice: null };
     default:
@@ -166,6 +178,7 @@ export function useBlackjackGame() {
     state,
     drawCard: (player: PlayerId) => dispatch({ type: 'draw', player }),
     toggleNpc: () => dispatch({ type: 'toggle-npc' }),
+    setVisibilityMode: (mode: VisibilityMode) => dispatch({ type: 'set-visibility-mode', mode }),
     resetScores: () => dispatch({ type: 'reset-scores' }),
   };
 }

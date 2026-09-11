@@ -214,6 +214,12 @@
     gap: 24px;
     padding: 24px 0;
   }
+  .match-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
   .match-bar .eyebrow {
     margin-bottom: 4px;
   }
@@ -381,6 +387,33 @@
     z-index: 2;
     animation: none;
     transform: translateY(-6px) rotate(0deg);
+  }
+  .playing-card--face-down {
+    background: #232622;
+    border-color: #55594e;
+    color: #9a9d92;
+  }
+  .card-back-pattern {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    border: 1px dashed #42463c;
+    border-radius: 4px;
+    background:
+      repeating-linear-gradient(
+        45deg,
+        #2a2d28,
+        #2a2d28 4px,
+        #21231f 4px,
+        #21231f 8px
+      );
+  }
+  .card-back-symbol {
+    font-family: Georgia, serif;
+    font-size: 28px;
+    opacity: 0.5;
   }
   .card--red {
     color: #9e463e;

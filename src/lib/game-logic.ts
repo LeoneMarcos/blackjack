@@ -23,6 +23,8 @@ export interface Scoreboards {
 
 export type Winner = 'p1' | 'p2' | 'tie';
 
+export type VisibilityMode = 'open' | 'classic';
+
 /**
  * Calculates the total value of a blackjack hand, handling Aces appropriately (11 or 1).
  */
@@ -36,6 +38,14 @@ export function calculateHandValue(cards: Card[]): number {
   }
 
   return total;
+}
+
+/**
+ * Calculates hand value excluding specified hidden card indices.
+ */
+export function calculateVisibleHandValue(cards: Card[], hiddenIndices: number[] = []): number {
+  const visibleCards = cards.filter((_, idx) => !hiddenIndices.includes(idx));
+  return calculateHandValue(visibleCards);
 }
 
 /**

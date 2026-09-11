@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calculateHandValue,
+  calculateVisibleHandValue,
   createScoreboards,
   determineWinner,
   isBust,
@@ -31,6 +32,12 @@ describe('hand scoring', () => {
 
   it('handles hand with multiple aces reducing until valid', () => {
     expect(calculateHandValue([card('A', 11), card('A', 11), card('A', 11), card('9')])).toBe(12);
+  });
+
+  it('calculates visible hand value ignoring hidden indices', () => {
+    const hand = [card('K', 10), card('7', 7), card('5', 5)];
+    expect(calculateVisibleHandValue(hand, [1])).toBe(15);
+    expect(calculateVisibleHandValue(hand, [])).toBe(22);
   });
 
   it('identifies bust hands', () => {

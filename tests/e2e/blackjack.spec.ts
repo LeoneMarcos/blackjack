@@ -34,6 +34,54 @@ test.describe('Blackjack critical browser flows', () => {
     ).toBeEnabled();
   });
 
+  test('hides the BOT hole card in Classic mode during active round and reveals it when round ends', async ({
+    page,
+  }) => {
+    await page.goto('/');
+
+    // Verify Classic mode toggle is active by default for BOT
+    await expect(page.getByRole('button', { name: 'Classic mode', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    // Draw for Player 1
+    const playerOne = page.getByRole('button', { name: 'Draw card for Player 1', exact: true });
+    await playerOne.click();
+    await page.waitForTimeout(800);
+    await playerOne.click();
+    await page.waitForTimeout(800);
+
+    // Verify face-down card is present during active round if BOT has at least 2 cards
+    const botCards = page.getByRole('list', { name: 'BOT cards', exact: true });
+    await expect(botCards).toBeVisible();
+
+    const faceDownCard = page.getByLabel('Face-down card');
+    await expect(faceDownCard).toBeVisible();
+
+    // Verify score display does not reveal full total
+    const botScore = page.getByLabel('BOT score');
+    await expect(botScore).toContainText('+ ?');
+
+    // Continue round until completion
+    for (let turn = 0; turn < 8 && !(await roundIsComplete(page)); turn += 1) {
+      if (
+        await page.getByRole('button', { name: 'Draw card for Player 1', exact: true }).isVisible()
+      ) {
+        await page.getByRole('button', { name: 'Draw card for Player 1', exact: true }).click();
+        await page.waitForTimeout(650);
+      }
+    }
+
+    await expect
+      .poll(() => page.getByRole('status').innerText())
+      .toMatch(/won|tied|round complete/i);
+
+    // Once round is over, hidden card is revealed
+    await expect(page.getByLabel('Face-down card')).toBeHidden();
+    await expect(botScore).not.toContainText('?');
+  });
+
   test('switches to local play, supports keyboard controls, rules, and reset', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Two players', exact: true }).click();

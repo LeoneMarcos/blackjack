@@ -5,12 +5,23 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import { Bot, CircleHelp, Clock3, Hand, RotateCcw, Users, X } from 'lucide-react';
+import { Bot, CircleHelp, Clock3, Eye, EyeOff, Hand, RotateCcw, Users, X } from 'lucide-react';
 import { useBlackjackGame } from './hooks/useBlackjackGame';
-import { shouldBotHit, type Card } from './lib/game-logic';
+import { calculateVisibleHandValue, shouldBotHit, type Card } from './lib/game-logic';
 
-function formatScore(hand: { cards: Card[]; score: number }): number | string {
+function formatScore(
+  hand: { cards: Card[]; score: number },
+  hiddenIndex?: number,
+): number | string {
   if (hand.cards.length === 0) return 0;
+  if (hiddenIndex !== undefined && hiddenIndex >= 0 && hiddenIndex < hand.cards.length) {
+    const visibleCards = hand.cards.filter((_, idx) => idx !== hiddenIndex);
+    if (visibleCards.length === 1 && visibleCards[0]?.label === 'A') {
+      return '1/11 + ?';
+    }
+    const visibleScore = calculateVisibleHandValue(hand.cards, [hiddenIndex]);
+    return `${visibleScore} + ?`;
+  }
   if (hand.cards.length === 1 && hand.cards[0]?.label === 'A') return '1/11';
   return hand.score;
 }
@@ -22,8 +33,25 @@ function getHandStatus(score: number, cardCount: number): string {
   return `${cardCount} ${cardCount === 1 ? 'card' : 'cards'}`;
 }
 
-function PlayingCard({ card }: { card: Card }) {
+function PlayingCard({ card, isFaceDown }: { card?: Card; isFaceDown?: boolean }) {
   const [rotation] = useState(() => (Math.random() * 6 - 3).toFixed(2));
+
+  if (isFaceDown) {
+    return (
+      <li
+        className="playing-card playing-card--face-down"
+        style={{ '--rotation': `${rotation}deg` } as CSSProperties}
+        aria-label="Face-down card"
+      >
+        <div className="card-back-pattern" aria-hidden="true">
+          <span className="card-back-symbol">♠</span>
+        </div>
+      </li>
+    );
+  }
+
+  if (!card) return null;
+
   const cardColor = card.color === 'red' ? 'card--red' : 'card--black';
   const cardTitle = card.name ? `${card.label} of ${card.name}` : `${card.label} of Cards`;
 
@@ -149,6 +177,7 @@ interface PlayerPanelProps {
   actionLabel: string;
   keyboardHint: string;
   onDraw: () => void;
+  hiddenCardIndex?: number;
 }
 
 function PlayerPanel({
@@ -160,8 +189,10 @@ function PlayerPanel({
   actionLabel,
   keyboardHint,
   onDraw,
+  hiddenCardIndex,
 }: PlayerPanelProps) {
   const status = getHandStatus(score, cards.length);
+  const formattedScore = formatScore({ cards, score }, hiddenCardIndex);
 
   return (
     <section
@@ -174,7 +205,7 @@ function PlayerPanel({
           <h2 id={`${accent}-player-title`}>{label}</h2>
         </div>
         <div className="score" aria-label={`${label} score`}>
-          {formatScore({ cards, score })}
+          {formattedScore}
           <small>/ 21</small>
         </div>
       </div>
@@ -182,7 +213,11 @@ function PlayerPanel({
       {cards.length > 0 ? (
         <ol className="cards" aria-label={`${label} cards`}>
           {cards.map((card, index) => (
-            <PlayingCard key={`${card.label}-${card.symbol}-${index}`} card={card} />
+            <PlayingCard
+              key={`card-slot-${index}`}
+              card={card}
+              isFaceDown={hiddenCardIndex === index}
+            />
           ))}
         </ol>
       ) : (
@@ -209,7 +244,7 @@ function PlayerPanel({
 }
 
 function App() {
-  const { state, drawCard, toggleNpc, resetScores } = useBlackjackGame();
+  const { state, drawCard, toggleNpc, setVisibilityMode, resetScores } = useBlackjackGame();
   const [rulesOpen, setRulesOpen] = useState(false);
   const opponentName = state.npcActive ? 'BOT' : 'Player 2';
   const activeScoreboard = state.scoreboards[state.npcActive ? 'npc' : 'local'];
@@ -220,6 +255,13 @@ function App() {
     !state.gameOver &&
     state.p1.cards.length > 0 &&
     shouldBotHit(state.p1.score, state.p2.score);
+
+  const isBotClassicActive =
+    state.npcActive &&
+    state.visibilityMode === 'classic' &&
+    !state.gameOver &&
+    state.p2.cards.length >= 2;
+  const botHiddenCardIndex = isBotClassicActive ? 1 : undefined;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -300,29 +342,58 @@ function App() {
             Player 1 <span aria-hidden="true">vs</span> {opponentName}
           </strong>
         </div>
-        <div className="mode-selector" role="group" aria-label="Game mode">
-          <button
-            type="button"
-            className={`mode-toggle ${state.npcActive ? 'mode-toggle--active' : ''}`}
-            aria-pressed={state.npcActive}
-            onClick={() => {
-              if (!state.npcActive) toggleNpc();
-            }}
-          >
-            <Bot aria-hidden="true" />
-            <span>Play against BOT</span>
-          </button>
-          <button
-            type="button"
-            className={`mode-toggle ${!state.npcActive ? 'mode-toggle--active' : ''}`}
-            aria-pressed={!state.npcActive}
-            onClick={() => {
-              if (state.npcActive) toggleNpc();
-            }}
-          >
-            <Users aria-hidden="true" />
-            <span>Two players</span>
-          </button>
+        <div className="match-controls">
+          <div className="mode-selector" role="group" aria-label="Game mode">
+            <button
+              type="button"
+              className={`mode-toggle ${state.npcActive ? 'mode-toggle--active' : ''}`}
+              aria-pressed={state.npcActive}
+              onClick={() => {
+                if (!state.npcActive) toggleNpc();
+              }}
+            >
+              <Bot aria-hidden="true" />
+              <span>Play against BOT</span>
+            </button>
+            <button
+              type="button"
+              className={`mode-toggle ${!state.npcActive ? 'mode-toggle--active' : ''}`}
+              aria-pressed={!state.npcActive}
+              onClick={() => {
+                if (state.npcActive) toggleNpc();
+              }}
+            >
+              <Users aria-hidden="true" />
+              <span>Two players</span>
+            </button>
+          </div>
+
+          {state.npcActive && (
+            <div className="mode-selector" role="group" aria-label="BOT visibility mode">
+              <button
+                type="button"
+                className={`mode-toggle ${state.visibilityMode === 'classic' ? 'mode-toggle--active' : ''}`}
+                aria-pressed={state.visibilityMode === 'classic'}
+                onClick={() => {
+                  if (state.visibilityMode !== 'classic') setVisibilityMode('classic');
+                }}
+              >
+                <EyeOff aria-hidden="true" />
+                <span>Classic mode</span>
+              </button>
+              <button
+                type="button"
+                className={`mode-toggle ${state.visibilityMode === 'open' ? 'mode-toggle--active' : ''}`}
+                aria-pressed={state.visibilityMode === 'open'}
+                onClick={() => {
+                  if (state.visibilityMode !== 'open') setVisibilityMode('open');
+                }}
+              >
+                <Eye aria-hidden="true" />
+                <span>Open cards</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -364,6 +435,7 @@ function App() {
             }
             keyboardHint="2"
             onDraw={() => drawCard('p2')}
+            hiddenCardIndex={botHiddenCardIndex}
           />
         </div>
       </div>
