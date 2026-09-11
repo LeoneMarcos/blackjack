@@ -508,9 +508,20 @@ function App() {
     }
   }, [state.scoreboards, state.npcActive]);
 
+  const roundEndedBeforeDealerTurn =
+    state.gameOver &&
+    !!state.notice &&
+    (/Blackjack/i.test(state.notice.message) ||
+      /^Player 1 busted/i.test(state.notice.message) ||
+      /^Both players busted/i.test(state.notice.message));
+
   let dealerStatusText = 'Dealer stands on 17 · Draws to 16';
   if (state.phase === 'dealer-turn') {
     dealerStatusText = 'Dealer is drawing (stands on 17)...';
+  } else if (state.gameOver && isBlackjack(state.dealer.cards)) {
+    dealerStatusText = 'Dealer has Blackjack';
+  } else if (roundEndedBeforeDealerTurn) {
+    dealerStatusText = 'Round ended before Dealer turn';
   } else if (state.gameOver) {
     dealerStatusText =
       state.dealer.score > 21
@@ -522,10 +533,19 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
+      if (event.key === 'Escape') {
+        setRulesOpen(false);
         return;
-      if (event.key === 'Escape') setRulesOpen(false);
+      }
       if (rulesOpen) return;
+
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('button, a, input, textarea, select, [contenteditable="true"], [role="button"]')
+      ) {
+        return;
+      }
 
       const key = event.key.toLowerCase();
       if (key === 'r') {
