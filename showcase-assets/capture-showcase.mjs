@@ -64,10 +64,11 @@ const isRoundComplete = async () => {
 const waitForRoundComplete = async (timeoutMs = 12_000) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (await isRoundComplete()) return true;
+    if (await isRoundComplete()) return;
     await page.waitForTimeout(250);
   }
-  return isRoundComplete();
+  if (await isRoundComplete()) return;
+  throw new Error(`Round did not complete within ${timeoutMs}ms`);
 };
 
 const getPlayerScore = async (playerLabel) => {
@@ -80,14 +81,16 @@ const getPlayerScore = async (playerLabel) => {
   }
 };
 
-const playHand = async (playerLabel) => {
+const playHand = async (playerLabel, timeoutMs = 12_000) => {
   const hitBtn = page.getByRole('button', { name: `Draw card for ${playerLabel}`, exact: true });
   const standBtn = page.getByRole('button', { name: `Stand for ${playerLabel}`, exact: true });
+  const deadline = Date.now() + timeoutMs;
 
-  for (let step = 0; step < 5; step += 1) {
-    if (await isRoundComplete()) break;
+  while (Date.now() < deadline) {
+    if (await isRoundComplete()) return;
+
     const canStand = await standBtn.isEnabled().catch(() => false);
-    if (!canStand) break;
+    if (!canStand) return;
 
     const score = await getPlayerScore(playerLabel);
     const canHit = await hitBtn.isEnabled().catch(() => false);
@@ -95,14 +98,29 @@ const playHand = async (playerLabel) => {
     if (score < 17 && canHit) {
       await hitBtn.click();
       await page.waitForTimeout(800);
-    } else if (canStand) {
-      await standBtn.click();
-      await page.waitForTimeout(800);
-      break;
-    } else {
-      break;
+      continue;
     }
+
+    await standBtn.click();
+    await page.waitForTimeout(800);
+    return;
   }
+
+  throw new Error(`${playerLabel} hand did not finish within ${timeoutMs}ms`);
+};
+
+const waitForPlayerTurn = async (playerLabel, timeoutMs = 5_000) => {
+  const standBtn = page.getByRole('button', { name: `Stand for ${playerLabel}`, exact: true });
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (await isRoundComplete()) return false;
+    if (await standBtn.isEnabled().catch(() => false)) return true;
+    await page.waitForTimeout(100);
+  }
+
+  if (await isRoundComplete()) return false;
+  throw new Error(`${playerLabel} did not become active within ${timeoutMs}ms`);
 };
 
 const checkpoint = (name) =>
@@ -148,13 +166,9 @@ try {
   await page.waitForTimeout(500);
 
   // Sequential play: complete Player 2 hand only when Player 2 is actually active
-  const p2StandBtn = page.getByRole('button', { name: 'Stand for Player 2', exact: true });
-  for (let i = 0; i < 20; i += 1) {
-    if (await isRoundComplete()) break;
-    if (await p2StandBtn.isEnabled().catch(() => false)) break;
-    await page.waitForTimeout(100);
+  if (await waitForPlayerTurn('Player 2')) {
+    await playHand('Player 2');
   }
-  await playHand('Player 2');
   await page.waitForTimeout(500);
 
   // Dealer autoplay plays and reveals hole card
