@@ -8,6 +8,7 @@ import {
   evaluateHandVsDealer,
   isBlackjack,
   isBust,
+  nextPhaseAfterPlayerOne,
   type Card,
   type GamePhase,
   type HandOutcome,
@@ -275,15 +276,19 @@ function handleHit(state: GameState, player: PlayerId = 'p1'): GameState {
         };
       }
 
-      // Two Players mode: P1 busts -> Pass turn to P2
+      // Two Players mode: P1 busts -> move to P2, unless P2 already has natural Blackjack.
+      const nextPhase = nextPhaseAfterPlayerOne(state.p2.cards);
       return {
         ...state,
         deck,
         p1: { cards: newCards, score: newScore },
-        phase: 'p2-turn',
+        phase: nextPhase,
         notice: {
-          winner: 'dealer',
-          message: `Player 1 busted with ${newScore} — Player 2's turn`,
+          winner: nextPhase === 'dealer-turn' ? 'p2' : 'dealer',
+          message:
+            nextPhase === 'dealer-turn'
+              ? `Player 1 busted with ${newScore} — Player 2 has Blackjack · Dealer's turn`
+              : `Player 1 busted with ${newScore} — Player 2's turn`,
         },
       };
     }
@@ -358,13 +363,17 @@ function handleStand(state: GameState, player: PlayerId = 'p1'): GameState {
       };
     }
 
-    // Two players mode -> transition to Player 2
+    // Two players mode -> transition to Player 2, unless P2 already has natural Blackjack.
+    const nextPhase = nextPhaseAfterPlayerOne(state.p2.cards);
     return {
       ...state,
-      phase: 'p2-turn',
+      phase: nextPhase,
       notice: {
         winner: 'p1',
-        message: `Player 1 stands on ${state.p1.score} — Player 2's turn`,
+        message:
+          nextPhase === 'dealer-turn'
+            ? `Player 1 stands on ${state.p1.score} — Player 2 has Blackjack · Dealer's turn`
+            : `Player 1 stands on ${state.p1.score} — Player 2's turn`,
       },
     };
   }

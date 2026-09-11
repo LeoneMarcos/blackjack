@@ -76,6 +76,14 @@ export function dealerMustHit(dealerScore: number): boolean {
 }
 
 /**
+ * Advances local two-player play after Player 1 finishes.
+ * A Player 2 natural Blackjack is already complete, so their action phase is skipped.
+ */
+export function nextPhaseAfterPlayerOne(p2Cards: Card[]): GamePhase {
+  return isBlackjack(p2Cards) ? 'dealer-turn' : 'p2-turn';
+}
+
+/**
  * Compares a player's final score directly against the dealer's score.
  */
 export function compareAgainstDealer(

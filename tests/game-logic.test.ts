@@ -11,6 +11,7 @@ import {
   getStationOutcomes,
   isBlackjack,
   isBust,
+  nextPhaseAfterPlayerOne,
   resetScoreboards,
   shouldBotHit,
   type Card,
@@ -86,6 +87,16 @@ describe('blackjack and dealer rules', () => {
     expect(dealerMustHit(17)).toBe(false);
     expect(dealerMustHit(18)).toBe(false);
     expect(dealerMustHit(21)).toBe(false);
+  });
+});
+
+describe('two-player turn sequencing', () => {
+  it('skips Player 2 action phase when Player 2 was dealt a natural Blackjack', () => {
+    expect(nextPhaseAfterPlayerOne([card('A', 11), card('K', 10)])).toBe('dealer-turn');
+  });
+
+  it('hands control to Player 2 when their initial hand is still playable', () => {
+    expect(nextPhaseAfterPlayerOne([card('10', 10), card('9', 9)])).toBe('p2-turn');
   });
 });
 
