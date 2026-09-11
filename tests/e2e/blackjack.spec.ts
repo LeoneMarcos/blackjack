@@ -37,6 +37,11 @@ test.describe('Blackjack critical browser flows', () => {
   test('hides the BOT hole card in Classic mode during active round and reveals it when round ends', async ({
     page,
   }) => {
+    // Keep the Fisher-Yates shuffle deterministic: this deals P1 an ace, followed by
+    // two ten-value cards to the BOT, so the active round always has a hole card.
+    await page.addInitScript(() => {
+      Math.random = () => 0;
+    });
     await page.goto('/');
 
     // Verify Classic mode toggle is active by default for BOT
@@ -45,14 +50,11 @@ test.describe('Blackjack critical browser flows', () => {
       'true',
     );
 
-    // Draw for Player 1
+    // One P1 draw deterministically makes the BOT draw twice without ending the round.
     const playerOne = page.getByRole('button', { name: 'Draw card for Player 1', exact: true });
     await playerOne.click();
-    await page.waitForTimeout(800);
-    await playerOne.click();
-    await page.waitForTimeout(800);
 
-    // Verify face-down card is present during active round if BOT has at least 2 cards
+    // Verify the face-down card is present during the active round.
     const botCards = page.getByRole('list', { name: 'BOT cards', exact: true });
     await expect(botCards).toBeVisible();
 
