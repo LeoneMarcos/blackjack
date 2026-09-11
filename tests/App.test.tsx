@@ -111,4 +111,20 @@ describe('Blackjack app shell', () => {
     expect(screen.getByRole('heading', { name: 'Player 2' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Dealer' })).toBeTruthy();
   });
+
+  it('does not trigger score pop badge or bump animation when toggling game modes', () => {
+    render(<App />);
+
+    const twoPlayersButton = screen.getByRole('button', { name: 'Two players' });
+    const botButton = screen.getByRole('button', { name: 'Play against BOT' });
+
+    // Toggle back and forth between modes
+    fireEvent.click(twoPlayersButton);
+    expect(document.querySelector('.score-pop-badge')).toBeNull();
+    expect(document.querySelector('.scoreboard__player--bump')).toBeNull();
+
+    fireEvent.click(botButton);
+    expect(document.querySelector('.score-pop-badge')).toBeNull();
+    expect(document.querySelector('.scoreboard__player--bump')).toBeNull();
+  });
 });

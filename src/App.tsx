@@ -282,9 +282,12 @@ function DealerStation({
           <span className="empty-cards" aria-hidden="true">
             ♠
           </span>
-          <span>Dealer stands on 17</span>
+          <span>Awaiting deal</span>
         </div>
       )}
+      <div className="dealer-station__footer">
+        <span className="dealer-status-badge">Dealer stands on 17 · Draws to 16</span>
+      </div>
     </section>
   );
 }
@@ -453,10 +456,10 @@ function App() {
     state.npcActive,
   );
 
+  const prevNpcActiveRef = useRef(state.npcActive);
   const prevScoresRef = useRef({
-    p1: state.npcActive ? state.scoreboards.npc.p1 : state.scoreboards.local.p1,
-    p2: state.scoreboards.local.p2,
-    dealer: state.npcActive ? state.scoreboards.npc.dealer : state.scoreboards.local.dealer,
+    npc: { ...state.scoreboards.npc },
+    local: { ...state.scoreboards.local },
   });
 
   const [scoreGains, setScoreGains] = useState<{ p1?: boolean; p2?: boolean; dealer?: boolean }>(
@@ -464,20 +467,36 @@ function App() {
   );
 
   useEffect(() => {
-    const currentP1 = state.npcActive ? state.scoreboards.npc.p1 : state.scoreboards.local.p1;
-    const currentP2 = state.scoreboards.local.p2;
-    const currentDealer = state.npcActive
-      ? state.scoreboards.npc.dealer
-      : state.scoreboards.local.dealer;
+    // If the game mode changed, update refs silently without triggering score animations
+    if (prevNpcActiveRef.current !== state.npcActive) {
+      prevNpcActiveRef.current = state.npcActive;
+      prevScoresRef.current = {
+        npc: { ...state.scoreboards.npc },
+        local: { ...state.scoreboards.local },
+      };
+      setScoreGains({});
+      return;
+    }
 
-    const prev = prevScoresRef.current;
     const gains: { p1?: boolean; p2?: boolean; dealer?: boolean } = {};
 
-    if (currentP1 > prev.p1) gains.p1 = true;
-    if (currentP2 > prev.p2) gains.p2 = true;
-    if (currentDealer > prev.dealer) gains.dealer = true;
+    if (state.npcActive) {
+      const current = state.scoreboards.npc;
+      const prev = prevScoresRef.current.npc;
+      if (current.p1 > prev.p1) gains.p1 = true;
+      if (current.dealer > prev.dealer) gains.dealer = true;
+    } else {
+      const current = state.scoreboards.local;
+      const prev = prevScoresRef.current.local;
+      if (current.p1 > prev.p1) gains.p1 = true;
+      if (current.p2 > prev.p2) gains.p2 = true;
+      if (current.dealer > prev.dealer) gains.dealer = true;
+    }
 
-    prevScoresRef.current = { p1: currentP1, p2: currentP2, dealer: currentDealer };
+    prevScoresRef.current = {
+      npc: { ...state.scoreboards.npc },
+      local: { ...state.scoreboards.local },
+    };
 
     if (gains.p1 || gains.p2 || gains.dealer) {
       const gainTimer = setTimeout(() => setScoreGains(gains), 0);
@@ -585,7 +604,7 @@ function App() {
     <main className="app-shell" aria-labelledby="app-title">
       <header className="app-header">
         <div className="brand-lockup">
-          <img className="brand-mark" src="/blackjack-neutral.webp" alt="" width="38" height="38" />
+          <img className="brand-mark" src="/blackjack-neutral.webp" alt="" width="44" height="44" />
           <div>
             <span className="eyebrow">The card room</span>
             <h1 id="app-title">Blackjack</h1>
@@ -711,19 +730,7 @@ function App() {
             </div>
           )}
 
-          <div
-            className={`game-status ${
-              state.p1.score > 21 || state.p2.score > 21 || state.dealer.score > 21
-                ? 'game-status--bust'
-                : ''
-            }`}
-            role="status"
-            aria-live="polite"
-          >
-            <span
-              className={`status-dot ${state.gameOver ? 'status-dot--complete' : ''}`}
-              aria-hidden="true"
-            />
+          <div className="sr-only" role="status" aria-live="polite">
             {statusMessage}
           </div>
         </div>
