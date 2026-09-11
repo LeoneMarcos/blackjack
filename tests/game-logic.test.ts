@@ -8,6 +8,7 @@ import {
   dealerMustHit,
   determineWinner,
   evaluateHandVsDealer,
+  getStationOutcomes,
   isBlackjack,
   isBust,
   resetScoreboards,
@@ -216,5 +217,99 @@ describe('calculateTwoPlayerRoundPoints (binary scoring system)', () => {
     expect(calculateTwoPlayerRoundPoints('lose', 'tie').dealer).toBe(0);
     expect(calculateTwoPlayerRoundPoints('win', 'tie').dealer).toBe(0);
     expect(calculateTwoPlayerRoundPoints('tie', 'win').dealer).toBe(0);
+  });
+});
+
+describe('getStationOutcomes (visual indicator helper)', () => {
+  it('returns none for all when round is not over', () => {
+    const outcomes = getStationOutcomes(
+      { score: 20, cards: [] },
+      { score: 18, cards: [] },
+      { score: 17, cards: [] },
+      false,
+      false,
+    );
+    expect(outcomes).toEqual({ p1: 'none', p2: 'none', dealer: 'none' });
+  });
+
+  it('computes outcomes for BOT mode correctly', () => {
+    // P1 wins
+    expect(
+      getStationOutcomes(
+        { score: 20, cards: [] },
+        { score: 0, cards: [] },
+        { score: 18, cards: [] },
+        true,
+        true,
+      ),
+    ).toEqual({ p1: 'win', p2: 'none', dealer: 'lose' });
+
+    // Dealer wins
+    expect(
+      getStationOutcomes(
+        { score: 17, cards: [] },
+        { score: 0, cards: [] },
+        { score: 19, cards: [] },
+        true,
+        true,
+      ),
+    ).toEqual({ p1: 'lose', p2: 'none', dealer: 'win' });
+
+    // Tie
+    expect(
+      getStationOutcomes(
+        { score: 19, cards: [] },
+        { score: 0, cards: [] },
+        { score: 19, cards: [] },
+        true,
+        true,
+      ),
+    ).toEqual({ p1: 'tie', p2: 'none', dealer: 'tie' });
+  });
+
+  it('computes outcomes for Two Players mode correctly', () => {
+    // Both beat dealer
+    expect(
+      getStationOutcomes(
+        { score: 20, cards: [] },
+        { score: 19, cards: [] },
+        { score: 18, cards: [] },
+        true,
+        false,
+      ),
+    ).toEqual({ p1: 'win', p2: 'win', dealer: 'lose' });
+
+    // Dealer beats both
+    expect(
+      getStationOutcomes(
+        { score: 17, cards: [] },
+        { score: 18, cards: [] },
+        { score: 20, cards: [] },
+        true,
+        false,
+      ),
+    ).toEqual({ p1: 'lose', p2: 'lose', dealer: 'win' });
+
+    // P1 wins, P2 loses -> Dealer loses (did not beat both)
+    expect(
+      getStationOutcomes(
+        { score: 21, cards: [] },
+        { score: 17, cards: [] },
+        { score: 18, cards: [] },
+        true,
+        false,
+      ),
+    ).toEqual({ p1: 'win', p2: 'lose', dealer: 'lose' });
+
+    // P1 ties, P2 loses -> Dealer ties (did not beat both, did not lose)
+    expect(
+      getStationOutcomes(
+        { score: 18, cards: [] },
+        { score: 17, cards: [] },
+        { score: 18, cards: [] },
+        true,
+        false,
+      ),
+    ).toEqual({ p1: 'tie', p2: 'lose', dealer: 'tie' });
   });
 });

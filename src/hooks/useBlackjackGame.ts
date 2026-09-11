@@ -75,10 +75,6 @@ function dealInitialRound(
   if (npcActive) {
     // 1-Player mode (Play against BOT / Dealer)
     if (dealerBJ && p1BJ) {
-      const updatedScores: Scoreboards = {
-        ...scoreboards,
-        npc: { ...scoreboards.npc, ties: scoreboards.npc.ties + 1 },
-      };
       return {
         dealer: { cards: dealerCards, score: dealerScore },
         p1: { cards: p1Cards, score: p1Score },
@@ -87,9 +83,9 @@ function dealInitialRound(
         phase: 'round-ended',
         npcActive,
         visibilityMode,
-        scoreboards: updatedScores,
+        scoreboards,
         gameOver: true,
-        notice: { winner: 'tie', message: 'Both have Blackjack! Round tied' },
+        notice: { winner: 'tie', message: 'Both have Blackjack! Round tied (0 pts)' },
       };
     }
 
@@ -485,14 +481,13 @@ function handleDealerStep(state: GameState): GameState {
     let message: string;
     if (outcome === 'player') {
       updatedScores.npc.p1 += 1;
-      message = `Player 1 won with ${state.p1.score} against Dealer's ${dealerScore}`;
+      message = `Player 1 won with ${state.p1.score} against Dealer's ${dealerScore} (+1 pt P1)`;
     } else if (outcome === 'dealer') {
       updatedScores.npc.dealer += 1;
       updatedScores.npc.bot += 1;
-      message = `Dealer won with ${dealerScore} against Player 1's ${state.p1.score}`;
+      message = `Dealer won with ${dealerScore} against Player 1's ${state.p1.score} (+1 pt Dealer)`;
     } else {
-      updatedScores.npc.ties += 1;
-      message = `Round tied at ${dealerScore}`;
+      message = `Round tied at ${dealerScore} (0 pts)`;
     }
 
     return {

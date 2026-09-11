@@ -7,7 +7,12 @@ import {
 } from 'react';
 import { Bot, CircleHelp, Hand, RotateCcw, Users, X } from 'lucide-react';
 import { useBlackjackGame } from './hooks/useBlackjackGame';
-import { calculateVisibleHandValue, type Card } from './lib/game-logic';
+import {
+  calculateVisibleHandValue,
+  getStationOutcomes,
+  type Card,
+  type StationOutcome,
+} from './lib/game-logic';
 
 function formatScore(
   hand: { cards: Card[]; score: number },
@@ -201,6 +206,7 @@ interface DealerStationProps {
   hiddenCardIndex?: number;
   statusText: string;
   isBotMode: boolean;
+  outcome?: StationOutcome;
 }
 
 function DealerStation({
@@ -209,6 +215,7 @@ function DealerStation({
   hiddenCardIndex,
   statusText,
   isBotMode,
+  outcome = 'none',
 }: DealerStationProps) {
   const status = getHandStatus(score, cards.length);
   const formattedScore = formatScore({ cards, score }, hiddenCardIndex);
@@ -216,16 +223,38 @@ function DealerStation({
   const listLabel = isBotMode ? 'BOT cards' : 'Dealer cards';
   const scoreLabel = isBotMode ? 'BOT score' : 'Dealer score';
 
+  const outcomeClass =
+    outcome === 'win'
+      ? 'station--win'
+      : outcome === 'lose'
+        ? 'station--lose'
+        : outcome === 'tie'
+          ? 'station--tie'
+          : '';
+
   return (
-    <section className="dealer-station" aria-labelledby="dealer-title">
+    <section className={`dealer-station ${outcomeClass}`} aria-labelledby="dealer-title">
       <div className="dealer-station__header">
         <div className="dealer-station__info">
           <span className="eyebrow">The House</span>
           <h2 id="dealer-title">{label}</h2>
         </div>
-        <div className="score" aria-label={scoreLabel}>
-          {formattedScore}
-          <small>/ 21</small>
+        <div className="dealer-station__score-group">
+          {outcome !== 'none' && (
+            <span className={`outcome-badge outcome-badge--${outcome}`}>
+              {outcome === 'win'
+                ? 'Winner (+1 pt)'
+                : outcome === 'lose'
+                  ? score > 21
+                    ? 'Busted (0 pts)'
+                    : 'Lost (0 pts)'
+                  : 'Push (0 pts)'}
+            </span>
+          )}
+          <div className="score" aria-label={scoreLabel}>
+            {formattedScore}
+            <small>/ 21</small>
+          </div>
         </div>
       </div>
       <span className="hand-status">{statusText || status}</span>
@@ -276,6 +305,7 @@ interface PlayerPanelProps {
   onStand?: () => void;
   statusBadge?: string;
   hiddenCardIndex?: number;
+  outcome?: StationOutcome;
 }
 
 function PlayerPanel({
@@ -294,13 +324,26 @@ function PlayerPanel({
   onStand,
   statusBadge,
   hiddenCardIndex,
+  outcome = 'none',
 }: PlayerPanelProps) {
   const status = getHandStatus(score, cards.length);
   const formattedScore = formatScore({ cards, score }, hiddenCardIndex);
+  const isBust = score > 21;
+
+  const outcomeClass =
+    outcome === 'win'
+      ? 'station--win'
+      : outcome === 'lose'
+        ? 'station--lose'
+        : outcome === 'tie'
+          ? 'station--tie'
+          : isBust
+            ? 'player-panel--bust'
+            : '';
 
   return (
     <section
-      className={`player-panel player-panel--${accent} ${score > 21 ? 'player-panel--bust' : ''}`}
+      className={`player-panel player-panel--${accent} ${outcomeClass}`}
       aria-labelledby={`${accent}-player-title`}
     >
       <div className="player-panel__heading">
@@ -308,9 +351,22 @@ function PlayerPanel({
           <span className="eyebrow">{seatLabel}</span>
           <h2 id={`${accent}-player-title`}>{label}</h2>
         </div>
-        <div className="score" aria-label={`${label} score`}>
-          {formattedScore}
-          <small>/ 21</small>
+        <div className="player-panel__score-group">
+          {outcome !== 'none' && (
+            <span className={`outcome-badge outcome-badge--${outcome}`}>
+              {outcome === 'win'
+                ? 'Winner (+1 pt)'
+                : outcome === 'lose'
+                  ? isBust
+                    ? 'Busted (0 pts)'
+                    : 'Lost (0 pts)'
+                  : 'Push (0 pts)'}
+            </span>
+          )}
+          <div className="score" aria-label={`${label} score`}>
+            {formattedScore}
+            <small>/ 21</small>
+          </div>
         </div>
       </div>
       <span className="hand-status">{status}</span>
@@ -388,6 +444,50 @@ function App() {
   const isDealerHidden =
     state.phase !== 'dealer-turn' && !state.gameOver && state.dealer.cards.length >= 2;
   const dealerHiddenIndex = isDealerHidden ? 1 : undefined;
+
+  const stationOutcomes = getStationOutcomes(
+    state.p1,
+    state.p2,
+    state.dealer,
+    state.gameOver,
+    state.npcActive,
+  );
+
+  const prevScoresRef = useRef({
+    p1: state.npcActive ? state.scoreboards.npc.p1 : state.scoreboards.local.p1,
+    p2: state.scoreboards.local.p2,
+    dealer: state.npcActive ? state.scoreboards.npc.dealer : state.scoreboards.local.dealer,
+  });
+
+  const [scoreGains, setScoreGains] = useState<{ p1?: boolean; p2?: boolean; dealer?: boolean }>(
+    {},
+  );
+
+  useEffect(() => {
+    const currentP1 = state.npcActive ? state.scoreboards.npc.p1 : state.scoreboards.local.p1;
+    const currentP2 = state.scoreboards.local.p2;
+    const currentDealer = state.npcActive
+      ? state.scoreboards.npc.dealer
+      : state.scoreboards.local.dealer;
+
+    const prev = prevScoresRef.current;
+    const gains: { p1?: boolean; p2?: boolean; dealer?: boolean } = {};
+
+    if (currentP1 > prev.p1) gains.p1 = true;
+    if (currentP2 > prev.p2) gains.p2 = true;
+    if (currentDealer > prev.dealer) gains.dealer = true;
+
+    prevScoresRef.current = { p1: currentP1, p2: currentP2, dealer: currentDealer };
+
+    if (gains.p1 || gains.p2 || gains.dealer) {
+      const gainTimer = setTimeout(() => setScoreGains(gains), 0);
+      const resetTimer = setTimeout(() => setScoreGains({}), 1500);
+      return () => {
+        clearTimeout(gainTimer);
+        clearTimeout(resetTimer);
+      };
+    }
+  }, [state.scoreboards, state.npcActive]);
 
   let dealerStatusText = 'Dealer stands on 17 · Draws to 16';
   if (state.phase === 'dealer-turn') {
@@ -485,33 +585,88 @@ function App() {
     <main className="app-shell" aria-labelledby="app-title">
       <header className="app-header">
         <div className="brand-lockup">
-          <img className="brand-mark" src="/blackjack-neutral.webp" alt="" width="56" height="56" />
+          <img className="brand-mark" src="/blackjack-neutral.webp" alt="" width="38" height="38" />
           <div>
             <span className="eyebrow">The card room</span>
             <h1 id="app-title">Blackjack</h1>
           </div>
         </div>
-        <div className="header-tools">
+
+        <div className="mode-selector" role="group" aria-label="Game mode">
+          <button
+            type="button"
+            className={`mode-toggle ${state.npcActive ? 'mode-toggle--active' : ''}`}
+            aria-pressed={state.npcActive}
+            onClick={() => {
+              if (!state.npcActive) toggleNpc();
+            }}
+          >
+            <Bot aria-hidden="true" />
+            <span>Play against BOT</span>
+          </button>
+          <button
+            type="button"
+            className={`mode-toggle ${!state.npcActive ? 'mode-toggle--active' : ''}`}
+            aria-pressed={!state.npcActive}
+            onClick={() => {
+              if (state.npcActive) toggleNpc();
+            }}
+          >
+            <Users aria-hidden="true" />
+            <span>Two players</span>
+          </button>
+        </div>
+
+        <div className="header-actions">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="View game rules"
+            title="Game rules"
+            onClick={() => setRulesOpen(true)}
+          >
+            <CircleHelp aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Reset scores"
+            title="Reset scores"
+            onClick={resetScores}
+          >
+            <RotateCcw aria-hidden="true" />
+          </button>
+        </div>
+      </header>
+
+      <div className="table-surface">
+        <div className="table-top-bar">
           {state.npcActive ? (
             <div
               className="scoreboard"
-              aria-label={`Score: Player 1 ${state.scoreboards.npc.p1}, Dealer ${state.scoreboards.npc.dealer}, Ties ${state.scoreboards.npc.ties}`}
+              aria-label={`Score: Player 1 ${state.scoreboards.npc.p1}, Dealer ${state.scoreboards.npc.dealer}`}
             >
               <span className="scoreboard__label">Score</span>
-              <span className="scoreboard__player">
-                P1 <strong>{state.scoreboards.npc.p1}</strong>
+              <span
+                className={`scoreboard__player ${scoreGains.p1 ? 'scoreboard__player--bump' : ''}`}
+              >
+                P1
+                <span className="scoreboard__value-wrap">
+                  <strong>{state.scoreboards.npc.p1}</strong>
+                  {scoreGains.p1 && <span className="score-pop-badge">+1</span>}
+                </span>
               </span>
               <span className="scoreboard__divider" aria-hidden="true">
                 —
               </span>
-              <span className="scoreboard__player">
-                Dealer <strong>{state.scoreboards.npc.dealer}</strong>
-              </span>
-              <span className="scoreboard__divider" aria-hidden="true">
-                —
-              </span>
-              <span className="scoreboard__player">
-                Ties <strong>{state.scoreboards.npc.ties}</strong>
+              <span
+                className={`scoreboard__player ${scoreGains.dealer ? 'scoreboard__player--bump' : ''}`}
+              >
+                Dealer
+                <span className="scoreboard__value-wrap">
+                  <strong>{state.scoreboards.npc.dealer}</strong>
+                  {scoreGains.dealer && <span className="score-pop-badge">+1</span>}
+                </span>
               </span>
             </div>
           ) : (
@@ -520,104 +675,57 @@ function App() {
               aria-label={`Score: Player 1 ${state.scoreboards.local.p1}, Player 2 ${state.scoreboards.local.p2}, Dealer ${state.scoreboards.local.dealer}`}
             >
               <span className="scoreboard__label">Score</span>
-              <span className="scoreboard__player">
-                P1 <strong>{state.scoreboards.local.p1}</strong>
+              <span
+                className={`scoreboard__player ${scoreGains.p1 ? 'scoreboard__player--bump' : ''}`}
+              >
+                P1
+                <span className="scoreboard__value-wrap">
+                  <strong>{state.scoreboards.local.p1}</strong>
+                  {scoreGains.p1 && <span className="score-pop-badge">+1</span>}
+                </span>
+              </span>
+              <span className="scoreboard__divider" aria-hidden="true">
+                ·
+              </span>
+              <span
+                className={`scoreboard__player ${scoreGains.p2 ? 'scoreboard__player--bump' : ''}`}
+              >
+                P2
+                <span className="scoreboard__value-wrap">
+                  <strong>{state.scoreboards.local.p2}</strong>
+                  {scoreGains.p2 && <span className="score-pop-badge">+1</span>}
+                </span>
               </span>
               <span className="scoreboard__divider" aria-hidden="true">
                 —
               </span>
-              <span className="scoreboard__player">
-                P2 <strong>{state.scoreboards.local.p2}</strong>
-              </span>
-              <span className="scoreboard__divider" aria-hidden="true">
-                —
-              </span>
-              <span className="scoreboard__player">
-                Dealer <strong>{state.scoreboards.local.dealer}</strong>
+              <span
+                className={`scoreboard__player ${scoreGains.dealer ? 'scoreboard__player--bump' : ''}`}
+              >
+                Dealer
+                <span className="scoreboard__value-wrap">
+                  <strong>{state.scoreboards.local.dealer}</strong>
+                  {scoreGains.dealer && <span className="score-pop-badge">+1</span>}
+                </span>
               </span>
             </div>
           )}
-          <div className="header-actions">
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="View game rules"
-              title="Game rules"
-              onClick={() => setRulesOpen(true)}
-            >
-              <CircleHelp aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Reset scores"
-              title="Reset scores"
-              onClick={resetScores}
-            >
-              <RotateCcw aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      </header>
 
-      <div className="match-bar">
-        <div>
-          <span className="eyebrow">Match mode</span>
-          <strong>
-            {state.npcActive ? (
-              <>
-                Player 1 <span aria-hidden="true">vs</span> Dealer
-              </>
-            ) : (
-              <>
-                Player 1 &amp; Player 2 <span aria-hidden="true">vs</span> Dealer
-              </>
-            )}
-          </strong>
-        </div>
-        <div className="match-controls">
-          <div className="mode-selector" role="group" aria-label="Game mode">
-            <button
-              type="button"
-              className={`mode-toggle ${state.npcActive ? 'mode-toggle--active' : ''}`}
-              aria-pressed={state.npcActive}
-              onClick={() => {
-                if (!state.npcActive) toggleNpc();
-              }}
-            >
-              <Bot aria-hidden="true" />
-              <span>Play against BOT</span>
-            </button>
-            <button
-              type="button"
-              className={`mode-toggle ${!state.npcActive ? 'mode-toggle--active' : ''}`}
-              aria-pressed={!state.npcActive}
-              onClick={() => {
-                if (state.npcActive) toggleNpc();
-              }}
-            >
-              <Users aria-hidden="true" />
-              <span>Two players</span>
-            </button>
+          <div
+            className={`game-status ${
+              state.p1.score > 21 || state.p2.score > 21 || state.dealer.score > 21
+                ? 'game-status--bust'
+                : ''
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              className={`status-dot ${state.gameOver ? 'status-dot--complete' : ''}`}
+              aria-hidden="true"
+            />
+            {statusMessage}
           </div>
-        </div>
-      </div>
-
-      <div className="table-surface">
-        <div
-          className={`game-status ${
-            state.p1.score > 21 || state.p2.score > 21 || state.dealer.score > 21
-              ? 'game-status--bust'
-              : ''
-          }`}
-          role="status"
-          aria-live="polite"
-        >
-          <span
-            className={`status-dot ${state.gameOver ? 'status-dot--complete' : ''}`}
-            aria-hidden="true"
-          />
-          {statusMessage}
         </div>
 
         <DealerStation
@@ -626,6 +734,7 @@ function App() {
           hiddenCardIndex={dealerHiddenIndex}
           statusText={dealerStatusText}
           isBotMode={state.npcActive}
+          outcome={stationOutcomes.dealer}
         />
 
         <div className="table-divider" aria-hidden="true" />
@@ -648,6 +757,7 @@ function App() {
             onDraw={() => drawCard('p1')}
             onStand={() => stand('p1')}
             statusBadge={p1StatusBadge}
+            outcome={stationOutcomes.p1}
           />
 
           {!state.npcActive && (
@@ -666,6 +776,7 @@ function App() {
               onDraw={() => drawCard('p2')}
               onStand={() => stand('p2')}
               statusBadge={p2StatusBadge}
+              outcome={stationOutcomes.p2}
             />
           )}
         </div>

@@ -139,6 +139,43 @@ export function calculateTwoPlayerRoundPoints(
   };
 }
 
+export type StationOutcome = 'win' | 'lose' | 'tie' | 'none';
+
+/**
+ * Computes visual outcome states for Dealer, Player 1, and Player 2 stations.
+ */
+export function getStationOutcomes(
+  p1Hand: { score: number; cards: Card[] },
+  p2Hand: { score: number; cards: Card[] },
+  dealerHand: { score: number; cards: Card[] },
+  isGameOver: boolean,
+  isBotMode: boolean,
+): { p1: StationOutcome; p2: StationOutcome; dealer: StationOutcome } {
+  if (!isGameOver) {
+    return { p1: 'none', p2: 'none', dealer: 'none' };
+  }
+
+  const p1Out = evaluateHandVsDealer(p1Hand, dealerHand);
+
+  if (isBotMode) {
+    const dealerOut: StationOutcome = p1Out === 'win' ? 'lose' : p1Out === 'lose' ? 'win' : 'tie';
+    return { p1: p1Out, p2: 'none', dealer: dealerOut };
+  }
+
+  const p2Out = evaluateHandVsDealer(p2Hand, dealerHand);
+
+  let dealerOut: StationOutcome;
+  if (p1Out === 'lose' && p2Out === 'lose') {
+    dealerOut = 'win';
+  } else if (p1Out === 'win' || p2Out === 'win') {
+    dealerOut = 'lose';
+  } else {
+    dealerOut = 'tie';
+  }
+
+  return { p1: p1Out, p2: p2Out, dealer: dealerOut };
+}
+
 /**
  * Determines the round winner between player 1 and player 2 / bot,
  * respecting any manual winner override (e.g. instant win on 21 or bust event).
