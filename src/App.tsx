@@ -107,6 +107,10 @@ function RulesModal({ onClose }: { onClose: () => void }) {
       'The Dealer reveals the hidden card and must hit until reaching 17 or higher.',
     ],
     ['Outcome', 'Closest score to 21 wins. Equal scores result in a Push (tie).'],
+    [
+      'Two Players Scoring',
+      'Players earn 1 pt for beating the Dealer (0 on tie or loss). The Dealer earns 1 pt only if beating both players.',
+    ],
     ['Controls', 'H or 1 to Hit, S or Space to Stand, Space or D to Deal again, R to Reset.'],
   ];
 

@@ -89,6 +89,56 @@ export function compareAgainstDealer(
   return playerScore > dealerScore ? 'player' : 'dealer';
 }
 
+export type HandOutcome = 'win' | 'lose' | 'tie';
+
+/**
+ * Evaluates a player's hand against the dealer's hand under Blackjack rules.
+ */
+export function evaluateHandVsDealer(
+  playerHand: { score: number; cards?: Card[] },
+  dealerHand: { score: number; cards?: Card[] },
+): HandOutcome {
+  const pBust = isBust(playerHand.score);
+  const dBust = isBust(dealerHand.score);
+
+  if (pBust) return 'lose';
+  if (dBust) return 'win';
+
+  const pBJ = playerHand.cards ? isBlackjack(playerHand.cards) : false;
+  const dBJ = dealerHand.cards ? isBlackjack(dealerHand.cards) : false;
+
+  if (pBJ && dBJ) return 'tie';
+  if (pBJ) return 'win';
+  if (dBJ) return 'lose';
+
+  if (playerHand.score > dealerHand.score) return 'win';
+  if (playerHand.score < dealerHand.score) return 'lose';
+  return 'tie';
+}
+
+export interface TwoPlayerRoundPoints {
+  p1: number;
+  p2: number;
+  dealer: number;
+}
+
+/**
+ * Calculates binary points for Two Players mode:
+ * - Player 1 gets 1 point if they beat the dealer, 0 on tie or loss.
+ * - Player 2 gets 1 point if they beat the dealer, 0 on tie or loss.
+ * - Dealer gets 1 point only if they beat BOTH players; 0 if dealer ties or loses to either.
+ */
+export function calculateTwoPlayerRoundPoints(
+  p1Outcome: HandOutcome,
+  p2Outcome: HandOutcome,
+): TwoPlayerRoundPoints {
+  return {
+    p1: p1Outcome === 'win' ? 1 : 0,
+    p2: p2Outcome === 'win' ? 1 : 0,
+    dealer: p1Outcome === 'lose' && p2Outcome === 'lose' ? 1 : 0,
+  };
+}
+
 /**
  * Determines the round winner between player 1 and player 2 / bot,
  * respecting any manual winner override (e.g. instant win on 21 or bust event).

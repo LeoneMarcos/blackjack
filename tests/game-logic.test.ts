@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   calculateHandValue,
+  calculateTwoPlayerRoundPoints,
   calculateVisibleHandValue,
   compareAgainstDealer,
   createScoreboards,
   dealerMustHit,
   determineWinner,
+  evaluateHandVsDealer,
   isBlackjack,
   isBust,
   resetScoreboards,
@@ -151,5 +153,68 @@ describe('scoreboard reset and independence', () => {
     expect(sb1).not.toBe(sb2);
     expect(sb1.local).not.toBe(sb2.local);
     expect(sb1.npc).not.toBe(sb2.npc);
+  });
+});
+
+describe('evaluate hand vs dealer', () => {
+  it('identifies loss if player busts regardless of dealer', () => {
+    expect(evaluateHandVsDealer({ score: 22 }, { score: 18 })).toBe('lose');
+    expect(evaluateHandVsDealer({ score: 22 }, { score: 23 })).toBe('lose');
+  });
+
+  it('identifies win if dealer busts and player does not', () => {
+    expect(evaluateHandVsDealer({ score: 18 }, { score: 22 })).toBe('win');
+  });
+
+  it('identifies natural blackjack superiority over regular 21', () => {
+    const bjHand = { score: 21, cards: [card('A', 11), card('K', 10)] };
+    const normal21 = { score: 21, cards: [card('7', 7), card('7', 7), card('7', 7)] };
+    expect(evaluateHandVsDealer(bjHand, normal21)).toBe('win');
+    expect(evaluateHandVsDealer(normal21, bjHand)).toBe('lose');
+  });
+
+  it('identifies push when both have natural blackjack', () => {
+    const bjHand1 = { score: 21, cards: [card('A', 11), card('K', 10)] };
+    const bjHand2 = { score: 21, cards: [card('A', 11), card('Q', 10)] };
+    expect(evaluateHandVsDealer(bjHand1, bjHand2)).toBe('tie');
+  });
+
+  it('identifies win/lose/tie based on score comparison', () => {
+    expect(evaluateHandVsDealer({ score: 20 }, { score: 19 })).toBe('win');
+    expect(evaluateHandVsDealer({ score: 18 }, { score: 19 })).toBe('lose');
+    expect(evaluateHandVsDealer({ score: 19 }, { score: 19 })).toBe('tie');
+  });
+});
+
+describe('calculateTwoPlayerRoundPoints (binary scoring system)', () => {
+  it('gives 1 point to player 1 only if they beat the dealer, 0 on tie or loss', () => {
+    expect(calculateTwoPlayerRoundPoints('win', 'lose').p1).toBe(1);
+    expect(calculateTwoPlayerRoundPoints('tie', 'lose').p1).toBe(0);
+    expect(calculateTwoPlayerRoundPoints('lose', 'lose').p1).toBe(0);
+  });
+
+  it('gives 1 point to player 2 only if they beat the dealer, 0 on tie or loss', () => {
+    expect(calculateTwoPlayerRoundPoints('lose', 'win').p2).toBe(1);
+    expect(calculateTwoPlayerRoundPoints('lose', 'tie').p2).toBe(0);
+    expect(calculateTwoPlayerRoundPoints('lose', 'lose').p2).toBe(0);
+  });
+
+  it('gives 1 point to dealer ONLY when beating BOTH players', () => {
+    expect(calculateTwoPlayerRoundPoints('lose', 'lose')).toEqual({
+      p1: 0,
+      p2: 0,
+      dealer: 1,
+    });
+  });
+
+  it('gives 0 points to dealer if dealer loses or ties with either player', () => {
+    expect(calculateTwoPlayerRoundPoints('win', 'lose').dealer).toBe(0);
+    expect(calculateTwoPlayerRoundPoints('lose', 'win').dealer).toBe(0);
+    expect(calculateTwoPlayerRoundPoints('win', 'win').dealer).toBe(0);
+    expect(calculateTwoPlayerRoundPoints('tie', 'tie').dealer).toBe(0);
+    expect(calculateTwoPlayerRoundPoints('tie', 'lose').dealer).toBe(0);
+    expect(calculateTwoPlayerRoundPoints('lose', 'tie').dealer).toBe(0);
+    expect(calculateTwoPlayerRoundPoints('win', 'tie').dealer).toBe(0);
+    expect(calculateTwoPlayerRoundPoints('tie', 'win').dealer).toBe(0);
   });
 });

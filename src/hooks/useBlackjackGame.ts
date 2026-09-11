@@ -1,13 +1,16 @@
 import { useEffect, useReducer } from 'react';
 import {
   calculateHandValue,
+  calculateTwoPlayerRoundPoints,
   compareAgainstDealer,
   createScoreboards,
   dealerMustHit,
+  evaluateHandVsDealer,
   isBlackjack,
   isBust,
   type Card,
   type GamePhase,
+  type HandOutcome,
   type Scoreboards,
   type VisibilityMode,
 } from '../lib/game-logic';
@@ -148,21 +151,25 @@ function dealInitialRound(
 
   // Two Players mode (!npcActive)
   if (dealerBJ) {
+    const p1Outcome: HandOutcome = p1BJ ? 'tie' : 'lose';
+    const p2Outcome: HandOutcome = p2BJ ? 'tie' : 'lose';
+    const points = calculateTwoPlayerRoundPoints(p1Outcome, p2Outcome);
     const updatedScores: Scoreboards = {
       ...scoreboards,
-      local: { ...scoreboards.local },
+      local: {
+        ...scoreboards.local,
+        p1: scoreboards.local.p1 + points.p1,
+        p2: scoreboards.local.p2 + points.p2,
+        dealer: scoreboards.local.dealer + points.dealer,
+      },
     };
 
-    if (p1BJ) updatedScores.local.ties += 1;
-    else updatedScores.local.dealer += 1;
-
-    if (p2BJ) updatedScores.local.ties += 1;
-    else updatedScores.local.dealer += 1;
-
-    let message = 'Blackjack! Dealer won against both players';
-    if (p1BJ && p2BJ) message = 'Dealer and both players have Blackjack! Round tied';
-    else if (p1BJ) message = 'Dealer and Player 1 tied with Blackjack · Dealer beat Player 2';
-    else if (p2BJ) message = 'Dealer and Player 2 tied with Blackjack · Dealer beat Player 1';
+    let message = 'Blackjack! Dealer won against both players (+1 pt Dealer)';
+    if (p1BJ && p2BJ) message = 'Dealer and both players have Blackjack! Round tied (0 pts)';
+    else if (p1BJ)
+      message = 'Dealer and Player 1 tied with Blackjack · Dealer beat Player 2 (0 pts)';
+    else if (p2BJ)
+      message = 'Dealer and Player 2 tied with Blackjack · Dealer beat Player 1 (0 pts)';
 
     return {
       dealer: { cards: dealerCards, score: dealerScore },
@@ -174,17 +181,19 @@ function dealInitialRound(
       visibilityMode,
       scoreboards: updatedScores,
       gameOver: true,
-      notice: { winner: 'dealer', message },
+      notice: { winner: points.dealer === 1 ? 'dealer' : 'tie', message },
     };
   }
 
   if (p1BJ && p2BJ) {
+    const points = calculateTwoPlayerRoundPoints('win', 'win');
     const updatedScores: Scoreboards = {
       ...scoreboards,
       local: {
         ...scoreboards.local,
-        p1: scoreboards.local.p1 + 1,
-        p2: scoreboards.local.p2 + 1,
+        p1: scoreboards.local.p1 + points.p1,
+        p2: scoreboards.local.p2 + points.p2,
+        dealer: scoreboards.local.dealer + points.dealer,
       },
     };
     return {
@@ -197,7 +206,7 @@ function dealInitialRound(
       visibilityMode,
       scoreboards: updatedScores,
       gameOver: true,
-      notice: { winner: 'both', message: 'Blackjack! Both Player 1 and Player 2 won the round' },
+      notice: { winner: 'both', message: 'Blackjack! Both Player 1 and Player 2 won (+1 pt each)' },
     };
   }
 
@@ -287,12 +296,15 @@ function handleHit(state: GameState, player: PlayerId = 'p1'): GameState {
       // Player 2 busts
       const p1Busted = isBust(state.p1.score);
       if (p1Busted) {
-        // Both players busted! Dealer wins automatically
+        // Both players busted! Dealer wins against both.
+        const points = calculateTwoPlayerRoundPoints('lose', 'lose');
         const updatedScores: Scoreboards = {
           ...state.scoreboards,
           local: {
             ...state.scoreboards.local,
-            dealer: state.scoreboards.local.dealer + 2,
+            p1: state.scoreboards.local.p1 + points.p1,
+            p2: state.scoreboards.local.p2 + points.p2,
+            dealer: state.scoreboards.local.dealer + points.dealer,
           },
         };
         return {
@@ -304,7 +316,7 @@ function handleHit(state: GameState, player: PlayerId = 'p1'): GameState {
           scoreboards: updatedScores,
           notice: {
             winner: 'dealer',
-            message: 'Both players busted — Dealer won the round',
+            message: 'Both players busted — Dealer won the round (+1 pt Dealer)',
           },
         };
       }
@@ -412,25 +424,33 @@ function handleDealerStep(state: GameState): GameState {
       }
 
       // Two players mode
+      const p1Outcome: HandOutcome = isBust(state.p1.score) ? 'lose' : 'win';
+      const p2Outcome: HandOutcome = isBust(state.p2.score) ? 'lose' : 'win';
+      const points = calculateTwoPlayerRoundPoints(p1Outcome, p2Outcome);
+
       const updatedScores: Scoreboards = {
         ...state.scoreboards,
-        local: { ...state.scoreboards.local },
+        local: {
+          ...state.scoreboards.local,
+          p1: state.scoreboards.local.p1 + points.p1,
+          p2: state.scoreboards.local.p2 + points.p2,
+          dealer: state.scoreboards.local.dealer + points.dealer,
+        },
       };
-      const p1Won = !isBust(state.p1.score);
-      const p2Won = !isBust(state.p2.score);
 
-      if (p1Won) updatedScores.local.p1 += 1;
-      else updatedScores.local.dealer += 1;
-
-      if (p2Won) updatedScores.local.p2 += 1;
-      else updatedScores.local.dealer += 1;
-
-      let message = `Dealer busted with ${newDealerScore} — Player 1 and Player 2 won!`;
-      if (p1Won && !p2Won) {
-        message = `Dealer busted with ${newDealerScore} — Player 1 won (Player 2 busted)`;
-      } else if (!p1Won && p2Won) {
-        message = `Dealer busted with ${newDealerScore} — Player 2 won (Player 1 busted)`;
+      let message = `Dealer busted with ${newDealerScore}!`;
+      if (points.p1 === 1 && points.p2 === 1) {
+        message = `Dealer busted with ${newDealerScore} — Player 1 and Player 2 won (+1 pt each)!`;
+      } else if (points.p1 === 1 && points.p2 === 0) {
+        message = `Dealer busted with ${newDealerScore} — Player 1 won (+1 pt, Player 2 busted)`;
+      } else if (points.p1 === 0 && points.p2 === 1) {
+        message = `Dealer busted with ${newDealerScore} — Player 2 won (+1 pt, Player 1 busted)`;
       }
+
+      let winner = 'tie';
+      if (points.p1 === 1 && points.p2 === 1) winner = 'both';
+      else if (points.p1 === 1) winner = 'p1';
+      else if (points.p2 === 1) winner = 'p2';
 
       return {
         ...state,
@@ -440,7 +460,7 @@ function handleDealerStep(state: GameState): GameState {
         gameOver: true,
         scoreboards: updatedScores,
         notice: {
-          winner: p1Won ? 'p1' : 'p2',
+          winner,
           message,
         },
       };
@@ -485,53 +505,59 @@ function handleDealerStep(state: GameState): GameState {
   }
 
   // Two Players mode resolution
-  const p1Res = isBust(state.p1.score)
-    ? 'dealer'
-    : compareAgainstDealer(state.p1.score, dealerScore);
-  const p2Res = isBust(state.p2.score)
-    ? 'dealer'
-    : compareAgainstDealer(state.p2.score, dealerScore);
+  const p1Outcome = evaluateHandVsDealer(
+    { score: state.p1.score, cards: state.p1.cards },
+    { score: dealerScore, cards: state.dealer.cards },
+  );
+  const p2Outcome = evaluateHandVsDealer(
+    { score: state.p2.score, cards: state.p2.cards },
+    { score: dealerScore, cards: state.dealer.cards },
+  );
+  const points = calculateTwoPlayerRoundPoints(p1Outcome, p2Outcome);
 
   const updatedScores: Scoreboards = {
     ...state.scoreboards,
-    local: { ...state.scoreboards.local },
+    local: {
+      ...state.scoreboards.local,
+      p1: state.scoreboards.local.p1 + points.p1,
+      p2: state.scoreboards.local.p2 + points.p2,
+      dealer: state.scoreboards.local.dealer + points.dealer,
+    },
   };
 
-  if (p1Res === 'player') updatedScores.local.p1 += 1;
-  else if (p1Res === 'dealer') updatedScores.local.dealer += 1;
-  else updatedScores.local.ties += 1;
-
-  if (p2Res === 'player') updatedScores.local.p2 += 1;
-  else if (p2Res === 'dealer') updatedScores.local.dealer += 1;
-  else updatedScores.local.ties += 1;
-
   let message = '';
-  if (p1Res === 'player' && p2Res === 'player') {
-    message = `Both Player 1 and Player 2 won against Dealer (${dealerScore})!`;
-  } else if (p1Res === 'dealer' && p2Res === 'dealer') {
-    message = `Dealer (${dealerScore}) won against both players`;
-  } else if (p1Res === 'player' && p2Res === 'dealer') {
-    message = `Player 1 won (${state.p1.score}) · Dealer beat Player 2 (${dealerScore} vs ${state.p2.score})`;
-  } else if (p2Res === 'player' && p1Res === 'dealer') {
-    message = `Player 2 won (${state.p2.score}) · Dealer beat Player 1 (${dealerScore} vs ${state.p1.score})`;
-  } else if (p1Res === 'tie' && p2Res === 'tie') {
-    message = `Round tied for both players at ${dealerScore}`;
-  } else if (p1Res === 'player' && p2Res === 'tie') {
-    message = `Player 1 won (${state.p1.score}) · Player 2 pushed at ${dealerScore}`;
-  } else if (p2Res === 'player' && p1Res === 'tie') {
-    message = `Player 2 won (${state.p2.score}) · Player 1 pushed at ${dealerScore}`;
-  } else if (p1Res === 'tie' && p2Res === 'dealer') {
-    message = `Player 1 pushed · Dealer beat Player 2 (${dealerScore} vs ${state.p2.score})`;
-  } else if (p2Res === 'tie' && p1Res === 'dealer') {
-    message = `Player 2 pushed · Dealer beat Player 1 (${dealerScore} vs ${state.p1.score})`;
+  if (points.p1 === 1 && points.p2 === 1) {
+    message = `Both Player 1 and Player 2 won against Dealer (${dealerScore})! (+1 pt each)`;
+  } else if (points.dealer === 1) {
+    message = `Dealer (${dealerScore}) won against both players (+1 pt Dealer)`;
+  } else if (points.p1 === 1 && p2Outcome === 'lose') {
+    message = `Player 1 won (${state.p1.score} vs ${dealerScore}, +1 pt) · Dealer beat Player 2 (No dealer pt)`;
+  } else if (points.p2 === 1 && p1Outcome === 'lose') {
+    message = `Player 2 won (${state.p2.score} vs ${dealerScore}, +1 pt) · Dealer beat Player 1 (No dealer pt)`;
+  } else if (p1Outcome === 'tie' && p2Outcome === 'tie') {
+    message = `Round tied for both players at ${dealerScore} (0 pts)`;
+  } else if (points.p1 === 1 && p2Outcome === 'tie') {
+    message = `Player 1 won (${state.p1.score}, +1 pt) · Player 2 pushed at ${dealerScore} (0 pts)`;
+  } else if (points.p2 === 1 && p1Outcome === 'tie') {
+    message = `Player 2 won (${state.p2.score}, +1 pt) · Player 1 pushed at ${dealerScore} (0 pts)`;
+  } else if (p1Outcome === 'tie' && p2Outcome === 'lose') {
+    message = `Player 1 pushed · Dealer beat Player 2 (${dealerScore} vs ${state.p2.score}, 0 pts)`;
+  } else if (p2Outcome === 'tie' && p1Outcome === 'lose') {
+    message = `Player 2 pushed · Dealer beat Player 1 (${dealerScore} vs ${state.p1.score}, 0 pts)`;
   }
+
+  let winner = 'tie';
+  if (points.p1 === 1 && points.p2 === 1) winner = 'both';
+  else if (points.p1 === 1) winner = 'p1';
+  else if (points.p2 === 1) winner = 'p2';
+  else if (points.dealer === 1) winner = 'dealer';
 
   return {
     ...state,
     phase: 'round-ended',
     gameOver: true,
     scoreboards: updatedScores,
-    notice: { winner: 'dealer', message },
+    notice: { winner, message },
   };
 }
 
