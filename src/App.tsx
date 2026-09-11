@@ -542,7 +542,9 @@ function App() {
       const target = event.target;
       if (
         target instanceof HTMLElement &&
-        target.closest('button, a, input, textarea, select, [contenteditable="true"], [role="button"]')
+        target.closest(
+          'button, a, input, textarea, select, [contenteditable="true"], [role="button"]',
+        )
       ) {
         return;
       }
