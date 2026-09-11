@@ -5,9 +5,9 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import { Bot, CircleHelp, Clock3, Eye, EyeOff, Hand, RotateCcw, Users, X } from 'lucide-react';
+import { Bot, CircleHelp, Hand, RotateCcw, Users, X } from 'lucide-react';
 import { useBlackjackGame } from './hooks/useBlackjackGame';
-import { calculateVisibleHandValue, shouldBotHit, type Card } from './lib/game-logic';
+import { calculateVisibleHandValue, type Card } from './lib/game-logic';
 
 function formatScore(
   hand: { cards: Card[]; score: number },
@@ -27,20 +27,33 @@ function formatScore(
 }
 
 function getHandStatus(score: number, cardCount: number): string {
-  if (score > 21) return 'Bust';
-  if (score === 21) return 'Blackjack';
-  if (cardCount === 0) return 'Waiting for the first card';
+  if (score > 21) return 'Busted hand';
+  if (score === 21 && cardCount === 2) return 'Blackjack!';
+  if (score === 21) return '21 points';
   return `${cardCount} ${cardCount === 1 ? 'card' : 'cards'}`;
 }
 
-function PlayingCard({ card, isFaceDown }: { card?: Card; isFaceDown?: boolean }) {
+function PlayingCard({
+  card,
+  isFaceDown,
+  dealDelay = 0,
+}: {
+  card?: Card;
+  isFaceDown?: boolean;
+  dealDelay?: number;
+}) {
   const [rotation] = useState(() => (Math.random() * 6 - 3).toFixed(2));
 
   if (isFaceDown) {
     return (
       <li
         className="playing-card playing-card--face-down"
-        style={{ '--rotation': `${rotation}deg` } as CSSProperties}
+        style={
+          {
+            '--rotation': `${rotation}deg`,
+            '--deal-delay': `${dealDelay}ms`,
+          } as CSSProperties
+        }
         aria-label="Face-down card"
       >
         <div className="card-back-pattern" aria-hidden="true">
@@ -58,7 +71,12 @@ function PlayingCard({ card, isFaceDown }: { card?: Card; isFaceDown?: boolean }
   return (
     <li
       className={`playing-card ${cardColor}`}
-      style={{ '--rotation': `${rotation}deg` } as CSSProperties}
+      style={
+        {
+          '--rotation': `${rotation}deg`,
+          '--deal-delay': `${dealDelay}ms`,
+        } as CSSProperties
+      }
       aria-label={cardTitle}
     >
       <div className="playing-card__corner" aria-hidden="true">
@@ -79,12 +97,17 @@ function PlayingCard({ card, isFaceDown }: { card?: Card; isFaceDown?: boolean }
 function RulesModal({ onClose }: { onClose: () => void }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const rules = [
-    ['Goal', 'Get as close to 21 as possible without going over.'],
-    ['Cards', 'Number cards keep their value; J, Q and K are worth 10.'],
-    ['Ace', 'An Ace is worth 11 or 1, whichever gives the better score.'],
-    ['Round', 'The highest valid score wins. Going over 21 is a bust.'],
-    ['Controls', 'Use the buttons or press 1 for Player 1 and 2 for Player 2.'],
-    ['BOT', 'Turn on the BOT to play against an automatic opponent.'],
+    ['Objective', 'Beat the Dealer by getting closer to 21 without going over.'],
+    ['Deal', 'Each round begins with 2 cards. The Dealer keeps one card hidden (hole card).'],
+    ['Blackjack', 'An initial two-card 21 (Ace + 10/J/Q/K) is a natural Blackjack!'],
+    ['Hit', 'Draw another card to increase your hand value. Going over 21 is a bust.'],
+    ['Stand', 'Keep your current score and pass the turn.'],
+    [
+      'Dealer Rules',
+      'The Dealer reveals the hidden card and must hit until reaching 17 or higher.',
+    ],
+    ['Outcome', 'Closest score to 21 wins. Equal scores result in a Push (tie).'],
+    ['Controls', 'H or 1 to Hit, S or Space to Stand, Space or D to Deal again, R to Reset.'],
   ];
 
   useEffect(() => {
@@ -136,7 +159,7 @@ function RulesModal({ onClose }: { onClose: () => void }) {
       >
         <div className="dialog-heading">
           <div>
-            <span className="eyebrow">How to play</span>
+            <span className="eyebrow">Casino rules</span>
             <h2 id="rulesTitle">Game rules</h2>
           </div>
           <button
@@ -150,7 +173,7 @@ function RulesModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p id="rulesDescription" className="sr-only">
-          Rules and keyboard controls for the current Blackjack match.
+          Classic casino Blackjack rules and keyboard controls.
         </p>
         <div className="rules-list">
           {rules.map(([title, description]) => (
@@ -168,27 +191,104 @@ function RulesModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+interface DealerStationProps {
+  cards: Card[];
+  score: number;
+  hiddenCardIndex?: number;
+  statusText: string;
+  isBotMode: boolean;
+}
+
+function DealerStation({
+  cards,
+  score,
+  hiddenCardIndex,
+  statusText,
+  isBotMode,
+}: DealerStationProps) {
+  const status = getHandStatus(score, cards.length);
+  const formattedScore = formatScore({ cards, score }, hiddenCardIndex);
+  const label = isBotMode ? 'Dealer (BOT)' : 'Dealer';
+  const listLabel = isBotMode ? 'BOT cards' : 'Dealer cards';
+  const scoreLabel = isBotMode ? 'BOT score' : 'Dealer score';
+
+  return (
+    <section className="dealer-station" aria-labelledby="dealer-title">
+      <div className="dealer-station__header">
+        <div className="dealer-station__info">
+          <span className="eyebrow">The House</span>
+          <h2 id="dealer-title">{label}</h2>
+        </div>
+        <div className="score" aria-label={scoreLabel}>
+          {formattedScore}
+          <small>/ 21</small>
+        </div>
+      </div>
+      <span className="hand-status">{statusText || status}</span>
+      {cards.length > 0 ? (
+        <ol className="cards" aria-label={listLabel}>
+          {cards.map((card, index) => {
+            let delay = 0;
+            if (cards.length === 2) {
+              delay = index === 0 ? 200 : 520;
+            } else if (index === cards.length - 1) {
+              delay = 30;
+            }
+            return (
+              <PlayingCard
+                key={`dealer-card-slot-${index}`}
+                card={card}
+                isFaceDown={hiddenCardIndex === index}
+                dealDelay={delay}
+              />
+            );
+          })}
+        </ol>
+      ) : (
+        <div className="empty-hand" aria-label="Dealer has no cards yet">
+          <span className="empty-cards" aria-hidden="true">
+            ♠
+          </span>
+          <span>Dealer stands on 17</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
 interface PlayerPanelProps {
   accent: 'first' | 'second';
+  seatLabel: string;
   cards: Card[];
   label: string;
   score: number;
   canDraw: boolean;
+  canStand?: boolean;
+  isStandDisabled?: boolean;
   actionLabel: string;
   keyboardHint: string;
+  standKeyboardHint?: string;
   onDraw: () => void;
+  onStand?: () => void;
+  statusBadge?: string;
   hiddenCardIndex?: number;
 }
 
 function PlayerPanel({
   accent,
+  seatLabel,
   cards,
   label,
   score,
   canDraw,
+  canStand,
+  isStandDisabled = false,
   actionLabel,
   keyboardHint,
+  standKeyboardHint = 'S',
   onDraw,
+  onStand,
+  statusBadge,
   hiddenCardIndex,
 }: PlayerPanelProps) {
   const status = getHandStatus(score, cards.length);
@@ -201,7 +301,7 @@ function PlayerPanel({
     >
       <div className="player-panel__heading">
         <div>
-          <span className="eyebrow">{accent === 'first' ? 'Seat 01' : 'Seat 02'}</span>
+          <span className="eyebrow">{seatLabel}</span>
           <h2 id={`${accent}-player-title`}>{label}</h2>
         </div>
         <div className="score" aria-label={`${label} score`}>
@@ -212,13 +312,22 @@ function PlayerPanel({
       <span className="hand-status">{status}</span>
       {cards.length > 0 ? (
         <ol className="cards" aria-label={`${label} cards`}>
-          {cards.map((card, index) => (
-            <PlayingCard
-              key={`card-slot-${index}`}
-              card={card}
-              isFaceDown={hiddenCardIndex === index}
-            />
-          ))}
+          {cards.map((card, index) => {
+            let delay = 0;
+            if (cards.length === 2) {
+              delay = accent === 'first' ? (index === 0 ? 50 : 360) : index === 0 ? 150 : 440;
+            } else if (index === cards.length - 1) {
+              delay = 30;
+            }
+            return (
+              <PlayingCard
+                key={`${accent}-card-slot-${index}`}
+                card={card}
+                isFaceDown={hiddenCardIndex === index}
+                dealDelay={delay}
+              />
+            );
+          })}
         </ol>
       ) : (
         <div className="empty-hand" aria-label={`${label} has no cards yet`}>
@@ -228,40 +337,65 @@ function PlayerPanel({
           <span>Ready to deal</span>
         </div>
       )}
-      <button
-        type="button"
-        className="button button--primary draw-button"
-        disabled={!canDraw}
-        aria-label={`${actionLabel} for ${label}`}
-        onClick={onDraw}
-      >
-        <Hand aria-hidden="true" />
-        <span>{actionLabel}</span>
-        {canDraw && <kbd>{keyboardHint}</kbd>}
-      </button>
+      {statusBadge && (
+        <div className="player-status-badge">
+          <span>{statusBadge}</span>
+        </div>
+      )}
+      <div className="player-actions">
+        <button
+          type="button"
+          className="button button--primary draw-button"
+          disabled={!canDraw}
+          aria-label={`${actionLabel} for ${label}`}
+          onClick={onDraw}
+        >
+          {actionLabel.includes('Deal') ? (
+            <RotateCcw aria-hidden="true" />
+          ) : (
+            <Hand aria-hidden="true" />
+          )}
+          <span>
+            {actionLabel === 'Draw card' ? (cards.length === 0 ? 'Deal hand' : 'Hit') : actionLabel}
+          </span>
+          {canDraw && <kbd>{keyboardHint}</kbd>}
+        </button>
+        {canStand && onStand && (
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={isStandDisabled}
+            aria-label={`Stand for ${label}`}
+            onClick={onStand}
+          >
+            <span>Stand</span>
+            <kbd>{standKeyboardHint}</kbd>
+          </button>
+        )}
+      </div>
     </section>
   );
 }
 
 function App() {
-  const { state, drawCard, toggleNpc, setVisibilityMode, resetScores } = useBlackjackGame();
+  const { state, hit, stand, dealRound, drawCard, toggleNpc, resetScores } = useBlackjackGame();
   const [rulesOpen, setRulesOpen] = useState(false);
-  const opponentName = state.npcActive ? 'BOT' : 'Player 2';
-  const activeScoreboard = state.scoreboards[state.npcActive ? 'npc' : 'local'];
-  const opponentWins = state.npcActive ? state.scoreboards.npc.bot : state.scoreboards.local.p2;
-  const actionLabel = state.gameOver ? 'Deal again' : 'Draw card';
-  const botThinking =
-    state.npcActive &&
-    !state.gameOver &&
-    state.p1.cards.length > 0 &&
-    shouldBotHit(state.p1.score, state.p2.score);
 
-  const isBotClassicActive =
-    state.npcActive &&
-    state.visibilityMode === 'classic' &&
-    !state.gameOver &&
-    state.p2.cards.length >= 2;
-  const botHiddenCardIndex = isBotClassicActive ? 1 : undefined;
+  const isDealerHidden =
+    state.phase !== 'dealer-turn' && !state.gameOver && state.dealer.cards.length >= 2;
+  const dealerHiddenIndex = isDealerHidden ? 1 : undefined;
+
+  let dealerStatusText = 'Dealer stands on 17 · Draws to 16';
+  if (state.phase === 'dealer-turn') {
+    dealerStatusText = 'Dealer is drawing (stands on 17)...';
+  } else if (state.gameOver) {
+    dealerStatusText =
+      state.dealer.score > 21
+        ? `Dealer busted with ${state.dealer.score}`
+        : `Dealer stands on ${state.dealer.score}`;
+  } else if (state.phase === 'idle') {
+    dealerStatusText = 'Ready to deal';
+  }
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -269,13 +403,79 @@ function App() {
         return;
       if (event.key === 'Escape') setRulesOpen(false);
       if (rulesOpen) return;
-      if (event.key === '1') drawCard('p1');
-      if (event.key === '2' && !state.npcActive) drawCard('p2');
-      if (event.key.toLowerCase() === 'r') resetScores();
+
+      const key = event.key.toLowerCase();
+      if (key === 'r') {
+        resetScores();
+        return;
+      }
+
+      if (state.phase === 'idle' || state.phase === 'round-ended') {
+        if (key === '1' || key === 'd' || event.code === 'Space' || event.key === 'Enter') {
+          event.preventDefault();
+          dealRound();
+        }
+      } else if (state.phase === 'player-turn') {
+        if (key === 'h' || key === '1') hit('p1');
+        if (key === 's' || event.code === 'Space') {
+          event.preventDefault();
+          stand('p1');
+        }
+      } else if (state.phase === 'p2-turn') {
+        if (key === 'h' || key === '2') hit('p2');
+        if (key === 's' || event.code === 'Space') {
+          event.preventDefault();
+          stand('p2');
+        }
+      }
     };
+
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [drawCard, resetScores, state.npcActive, rulesOpen]);
+  }, [hit, stand, dealRound, resetScores, state.phase, rulesOpen]);
+
+  let statusMessage = state.notice?.message;
+  if (!statusMessage) {
+    if (state.phase === 'player-turn') {
+      statusMessage = "Player 1's turn — Hit to draw or Stand to hold";
+    } else if (state.phase === 'p2-turn') {
+      statusMessage = "Player 2's turn — Hit to draw or Stand to hold";
+    } else if (state.phase === 'dealer-turn') {
+      statusMessage = 'Dealer is playing — dealer must draw to 16, stand on 17';
+    } else if (state.phase === 'idle') {
+      statusMessage = 'Table ready — deal to play';
+    } else {
+      statusMessage = 'Round complete — deal again to play';
+    }
+  }
+
+  const isRoundOver = state.gameOver || state.phase === 'idle';
+  const actionLabel = state.gameOver ? 'Deal again' : 'Draw card';
+
+  // Player 1 draw & stand conditions:
+  const canP1Draw = isRoundOver || (state.phase === 'player-turn' && state.p1.score < 21);
+  const canP1Stand = !isRoundOver && state.p1.cards.length > 0;
+  const isP1StandDisabled = state.phase !== 'player-turn' || state.p1.score >= 21;
+  const p1StatusBadge =
+    !isRoundOver && state.phase !== 'player-turn'
+      ? state.p1.score > 21
+        ? `Busted with ${state.p1.score}`
+        : `Standing on ${state.p1.score}`
+      : undefined;
+
+  // Player 2 draw & stand conditions (symmetrical with Player 1):
+  const canP2Draw = isRoundOver || (state.phase === 'p2-turn' && state.p2.score < 21);
+  const canP2Stand = !isRoundOver && state.p2.cards.length > 0;
+  const isP2StandDisabled = state.phase !== 'p2-turn' || state.p2.score >= 21;
+  const p2StatusBadge = !isRoundOver
+    ? state.phase === 'player-turn'
+      ? 'Waiting for Player 1...'
+      : state.phase === 'dealer-turn'
+        ? state.p2.score > 21
+          ? `Busted with ${state.p2.score}`
+          : `Standing on ${state.p2.score}`
+        : undefined
+    : undefined;
 
   return (
     <main className="app-shell" aria-labelledby="app-title">
@@ -288,21 +488,51 @@ function App() {
           </div>
         </div>
         <div className="header-tools">
-          <div
-            className="scoreboard"
-            aria-label={`Score: Player 1 ${activeScoreboard.p1}, ${opponentName} ${opponentWins}`}
-          >
-            <span className="scoreboard__label">Score</span>
-            <span className="scoreboard__player">
-              P1 <strong>{activeScoreboard.p1}</strong>
-            </span>
-            <span className="scoreboard__divider" aria-hidden="true">
-              —
-            </span>
-            <span className="scoreboard__player">
-              {state.npcActive ? 'BOT' : 'P2'} <strong>{opponentWins}</strong>
-            </span>
-          </div>
+          {state.npcActive ? (
+            <div
+              className="scoreboard"
+              aria-label={`Score: Player 1 ${state.scoreboards.npc.p1}, Dealer ${state.scoreboards.npc.dealer}, Ties ${state.scoreboards.npc.ties}`}
+            >
+              <span className="scoreboard__label">Score</span>
+              <span className="scoreboard__player">
+                P1 <strong>{state.scoreboards.npc.p1}</strong>
+              </span>
+              <span className="scoreboard__divider" aria-hidden="true">
+                —
+              </span>
+              <span className="scoreboard__player">
+                Dealer <strong>{state.scoreboards.npc.dealer}</strong>
+              </span>
+              <span className="scoreboard__divider" aria-hidden="true">
+                —
+              </span>
+              <span className="scoreboard__player">
+                Ties <strong>{state.scoreboards.npc.ties}</strong>
+              </span>
+            </div>
+          ) : (
+            <div
+              className="scoreboard"
+              aria-label={`Score: Player 1 ${state.scoreboards.local.p1}, Player 2 ${state.scoreboards.local.p2}, Dealer ${state.scoreboards.local.dealer}`}
+            >
+              <span className="scoreboard__label">Score</span>
+              <span className="scoreboard__player">
+                P1 <strong>{state.scoreboards.local.p1}</strong>
+              </span>
+              <span className="scoreboard__divider" aria-hidden="true">
+                —
+              </span>
+              <span className="scoreboard__player">
+                P2 <strong>{state.scoreboards.local.p2}</strong>
+              </span>
+              <span className="scoreboard__divider" aria-hidden="true">
+                —
+              </span>
+              <span className="scoreboard__player">
+                Dealer <strong>{state.scoreboards.local.dealer}</strong>
+              </span>
+            </div>
+          )}
           <div className="header-actions">
             <button
               type="button"
@@ -322,15 +552,6 @@ function App() {
             >
               <RotateCcw aria-hidden="true" />
             </button>
-            <div
-              className={`timer-chip ${state.timer <= 10 ? 'timer-chip--urgent' : ''}`}
-              role="timer"
-              aria-label={`${state.timer} seconds remaining`}
-            >
-              <Clock3 aria-hidden="true" />
-              <span>{String(state.timer).padStart(2, '0')}</span>
-              <small>sec</small>
-            </div>
           </div>
         </div>
       </header>
@@ -339,7 +560,15 @@ function App() {
         <div>
           <span className="eyebrow">Match mode</span>
           <strong>
-            Player 1 <span aria-hidden="true">vs</span> {opponentName}
+            {state.npcActive ? (
+              <>
+                Player 1 <span aria-hidden="true">vs</span> Dealer
+              </>
+            ) : (
+              <>
+                Player 1 &amp; Player 2 <span aria-hidden="true">vs</span> Dealer
+              </>
+            )}
           </strong>
         </div>
         <div className="match-controls">
@@ -367,39 +596,16 @@ function App() {
               <span>Two players</span>
             </button>
           </div>
-
-          {state.npcActive && (
-            <div className="mode-selector" role="group" aria-label="BOT visibility mode">
-              <button
-                type="button"
-                className={`mode-toggle ${state.visibilityMode === 'classic' ? 'mode-toggle--active' : ''}`}
-                aria-pressed={state.visibilityMode === 'classic'}
-                onClick={() => {
-                  if (state.visibilityMode !== 'classic') setVisibilityMode('classic');
-                }}
-              >
-                <EyeOff aria-hidden="true" />
-                <span>Classic mode</span>
-              </button>
-              <button
-                type="button"
-                className={`mode-toggle ${state.visibilityMode === 'open' ? 'mode-toggle--active' : ''}`}
-                aria-pressed={state.visibilityMode === 'open'}
-                onClick={() => {
-                  if (state.visibilityMode !== 'open') setVisibilityMode('open');
-                }}
-              >
-                <Eye aria-hidden="true" />
-                <span>Open cards</span>
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
       <div className="table-surface">
         <div
-          className={`game-status ${state.p1.score > 21 || state.p2.score > 21 ? 'game-status--bust' : ''}`}
+          className={`game-status ${
+            state.p1.score > 21 || state.p2.score > 21 || state.dealer.score > 21
+              ? 'game-status--bust'
+              : ''
+          }`}
           role="status"
           aria-live="polite"
         >
@@ -407,46 +613,75 @@ function App() {
             className={`status-dot ${state.gameOver ? 'status-dot--complete' : ''}`}
             aria-hidden="true"
           />
-          {state.notice?.message ??
-            (state.gameOver
-              ? 'Round complete — deal again to play'
-              : 'Choose a hand to draw a card')}
+          {statusMessage}
         </div>
 
-        <div className="table-grid">
+        <DealerStation
+          cards={state.dealer.cards}
+          score={state.dealer.score}
+          hiddenCardIndex={dealerHiddenIndex}
+          statusText={dealerStatusText}
+          isBotMode={state.npcActive}
+        />
+
+        <div className="table-divider" aria-hidden="true" />
+
+        <div
+          className={`table-grid ${state.npcActive ? 'table-grid--single' : 'table-grid--two-players'}`}
+        >
           <PlayerPanel
             accent="first"
+            seatLabel="Seat 01"
             cards={state.p1.cards}
             label="Player 1"
             score={state.p1.score}
-            canDraw
+            canDraw={canP1Draw}
+            canStand={canP1Stand}
+            isStandDisabled={isP1StandDisabled}
             actionLabel={actionLabel}
-            keyboardHint="1"
+            keyboardHint={state.phase === 'player-turn' ? '1 / H' : '1'}
+            standKeyboardHint="S"
             onDraw={() => drawCard('p1')}
+            onStand={() => stand('p1')}
+            statusBadge={p1StatusBadge}
           />
-          <PlayerPanel
-            accent="second"
-            cards={state.p2.cards}
-            label={opponentName}
-            score={state.p2.score}
-            canDraw={!state.npcActive}
-            actionLabel={
-              state.npcActive ? (botThinking ? 'BOT is thinking' : 'Auto play') : actionLabel
-            }
-            keyboardHint="2"
-            onDraw={() => drawCard('p2')}
-            hiddenCardIndex={botHiddenCardIndex}
-          />
+
+          {!state.npcActive && (
+            <PlayerPanel
+              accent="second"
+              seatLabel="Seat 02"
+              cards={state.p2.cards}
+              label="Player 2"
+              score={state.p2.score}
+              canDraw={canP2Draw}
+              canStand={canP2Stand}
+              isStandDisabled={isP2StandDisabled}
+              actionLabel={actionLabel}
+              keyboardHint={state.phase === 'p2-turn' ? '2 / H' : '2'}
+              standKeyboardHint="S"
+              onDraw={() => drawCard('p2')}
+              onStand={() => stand('p2')}
+              statusBadge={p2StatusBadge}
+            />
+          )}
         </div>
       </div>
+
       <footer className="app-footer">
         <span>
-          Press <kbd>R</kbd> to reset scores
+          {state.npcActive ? (
+            <>
+              <kbd>1</kbd> or <kbd>H</kbd> Hit · <kbd>S</kbd> or <kbd>Space</kbd> Stand ·{' '}
+              <kbd>Space</kbd> Deal · <kbd>R</kbd> Reset
+            </>
+          ) : (
+            <>
+              <kbd>1</kbd>/<kbd>2</kbd> Hit · <kbd>S</kbd> Stand · <kbd>Space</kbd> Deal ·{' '}
+              <kbd>R</kbd> Reset
+            </>
+          )}
         </span>
-        <span className="footer-note">
-          <Clock3 aria-hidden="true" />
-          30-second rounds · Closest to 21 wins
-        </span>
+        <span className="footer-note">Classic Casino Rules · Dealer stands on 17</span>
       </footer>
 
       {rulesOpen && <RulesModal onClose={() => setRulesOpen(false)} />}

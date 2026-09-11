@@ -18,25 +18,27 @@ test.describe('Blackjack showcase flow', () => {
     await page.waitForTimeout(1_200);
     await expect(page.getByRole('list', { name: 'BOT cards', exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Two players', exact: true }).click();
-    await page.waitForTimeout(900);
-    await page.keyboard.press('1');
-    await page.waitForTimeout(700);
-    await page.keyboard.press('2');
-    await page.waitForTimeout(900);
-    await expect(page.getByRole('list', { name: 'Player 1 cards', exact: true })).toBeVisible();
-    await expect(page.getByRole('list', { name: 'Player 2 cards', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Two players/ })).toBeEnabled();
 
-    for (let turn = 0; turn < 10; turn += 1) {
+    for (let turn = 0; turn < 4; turn += 1) {
       const status = await page.getByRole('status').innerText();
       if (/won|tied|round complete/i.test(status)) break;
-      const player = turn % 2 === 0 ? '1' : '2';
-      await page.getByRole('button', { name: new RegExp(`card for Player ${player}`) }).click();
-      await page.waitForTimeout(650);
+      const hitBtn = page.getByRole('button', { name: 'Draw card for Player 1', exact: true });
+      if (await hitBtn.isVisible()) {
+        await hitBtn.click();
+        await page.waitForTimeout(700);
+      }
     }
+
+    const standBtn = page.getByRole('button', { name: 'Stand for Player 1' });
+    if (await standBtn.isVisible()) {
+      await standBtn.click();
+      await page.waitForTimeout(1_000);
+    }
+
     await expect
       .poll(() => page.getByRole('status').innerText())
       .toMatch(/won|tied|round complete/i);
-    await page.waitForTimeout(1_500);
+    await page.waitForTimeout(1_200);
   });
 });

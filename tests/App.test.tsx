@@ -39,8 +39,8 @@ describe('Blackjack app shell', () => {
     vi.useFakeTimers();
     render(<App />);
 
-    const classicToggle = screen.getByRole('button', { name: 'Classic mode' });
-    expect(classicToggle.getAttribute('aria-pressed')).toBe('true');
+    const botModeButton = screen.getByRole('button', { name: 'Play against BOT' });
+    expect(botModeButton.getAttribute('aria-pressed')).toBe('true');
 
     const p1DrawButton = screen.getByRole('button', { name: 'Draw card for Player 1' });
 
@@ -93,15 +93,22 @@ describe('Blackjack app shell', () => {
     expect(botScoreContainer.textContent).not.toContain('?');
   });
 
-  it('allows toggling between Open and Classic visibility mode', () => {
+  it('supports toggling to Two players mode with both players facing the Dealer', () => {
     render(<App />);
 
-    const openToggle = screen.getByRole('button', { name: 'Open cards' });
-    fireEvent.click(openToggle);
-    expect(openToggle.getAttribute('aria-pressed')).toBe('true');
+    const botButton = screen.getByRole('button', { name: 'Play against BOT' });
+    expect(botButton.getAttribute('aria-pressed')).toBe('true');
 
-    const classicToggle = screen.getByRole('button', { name: 'Classic mode' });
-    fireEvent.click(classicToggle);
-    expect(classicToggle.getAttribute('aria-pressed')).toBe('true');
+    const twoPlayersButton = screen.getByRole('button', { name: 'Two players' });
+    expect(twoPlayersButton).not.toHaveProperty('disabled', true);
+
+    fireEvent.click(twoPlayersButton);
+    expect(twoPlayersButton.getAttribute('aria-pressed')).toBe('true');
+    expect(botButton.getAttribute('aria-pressed')).toBe('false');
+
+    // Both Player 1 and Player 2 should be rendered alongside Dealer
+    expect(screen.getByRole('heading', { name: 'Player 1' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Player 2' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Dealer' })).toBeTruthy();
   });
 });

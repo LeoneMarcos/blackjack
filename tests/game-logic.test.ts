@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateHandValue,
   calculateVisibleHandValue,
+  compareAgainstDealer,
   createScoreboards,
+  dealerMustHit,
   determineWinner,
+  isBlackjack,
   isBust,
   resetScoreboards,
   shouldBotHit,
@@ -66,6 +69,23 @@ describe('round outcomes', () => {
   });
 });
 
+describe('blackjack and dealer rules', () => {
+  it('detects a natural blackjack with exactly 2 cards', () => {
+    expect(isBlackjack([card('A', 11), card('K', 10)])).toBe(true);
+    expect(isBlackjack([card('A', 11), card('10', 10)])).toBe(true);
+    expect(isBlackjack([card('A', 11), card('9', 9)])).toBe(false);
+    expect(isBlackjack([card('7', 7), card('7', 7), card('7', 7)])).toBe(false);
+  });
+
+  it('enforces casino dealer rules: hit below 17, stand on 17+', () => {
+    expect(dealerMustHit(16)).toBe(true);
+    expect(dealerMustHit(15)).toBe(true);
+    expect(dealerMustHit(17)).toBe(false);
+    expect(dealerMustHit(18)).toBe(false);
+    expect(dealerMustHit(21)).toBe(false);
+  });
+});
+
 describe('bot decisions', () => {
   it('hits when it is behind', () => {
     expect(shouldBotHit(18, 16)).toBe(true);
@@ -89,6 +109,28 @@ describe('bot decisions', () => {
   });
 });
 
+describe('compare against dealer', () => {
+  it('identifies dealer win when player busts', () => {
+    expect(compareAgainstDealer(22, 18)).toBe('dealer');
+  });
+
+  it('identifies player win when dealer busts', () => {
+    expect(compareAgainstDealer(18, 23)).toBe('player');
+  });
+
+  it('identifies push when scores are equal', () => {
+    expect(compareAgainstDealer(20, 20)).toBe('tie');
+  });
+
+  it('identifies player win with higher score', () => {
+    expect(compareAgainstDealer(20, 19)).toBe('player');
+  });
+
+  it('identifies dealer win with higher score', () => {
+    expect(compareAgainstDealer(17, 19)).toBe('dealer');
+  });
+});
+
 describe('scoreboard reset and independence', () => {
   it('creates independent local and BOT scoreboards', () => {
     const scoreboards = createScoreboards();
@@ -96,8 +138,8 @@ describe('scoreboard reset and independence', () => {
     scoreboards.npc.bot = 1;
 
     expect(resetScoreboards()).toEqual({
-      local: { p1: 0, p2: 0 },
-      npc: { p1: 0, bot: 0 },
+      local: { p1: 0, p2: 0, dealer: 0, ties: 0 },
+      npc: { p1: 0, bot: 0, dealer: 0, ties: 0 },
     });
     expect(scoreboards.local).not.toBe(scoreboards.npc);
   });

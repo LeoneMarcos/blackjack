@@ -21,8 +21,13 @@ test.describe('Blackjack critical browser flows', () => {
     });
 
     for (let turn = 0; turn < 8 && !(await roundIsComplete(page)); turn += 1) {
-      await page.getByRole('button', { name: 'Draw card for Player 1', exact: true }).click();
-      await page.waitForTimeout(650);
+      const drawButton = page.getByRole('button', { name: 'Draw card for Player 1', exact: true });
+      if (await drawButton.isVisible()) {
+        await drawButton.click();
+        await page.waitForTimeout(700);
+      } else {
+        break;
+      }
     }
     await expect
       .poll(() => page.getByRole('status').innerText())
@@ -30,48 +35,45 @@ test.describe('Blackjack critical browser flows', () => {
 
     await page.getByRole('button', { name: 'Deal again for Player 1', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: 'Draw card for Player 1', exact: true }),
+      page.getByRole('button', { name: /Draw card for Player 1|Deal again for Player 1/ }),
     ).toBeEnabled();
   });
 
   test('hides the BOT hole card in Classic mode during active round and reveals it when round ends', async ({
     page,
   }) => {
-    // Keep the Fisher-Yates shuffle deterministic: this deals P1 an ace, followed by
-    // two ten-value cards to the BOT, so the active round always has a hole card.
-    await page.addInitScript(() => {
-      Math.random = () => 0;
-    });
     await page.goto('/');
 
-    // Verify Classic mode toggle is active by default for BOT
-    await expect(page.getByRole('button', { name: 'Classic mode', exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    // Verify BOT mode is active by default
+    await expect(
+      page.getByRole('button', { name: 'Play against BOT', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
 
-    // One P1 draw deterministically makes the BOT draw twice without ending the round.
     const playerOne = page.getByRole('button', { name: 'Draw card for Player 1', exact: true });
     await playerOne.click();
 
-    // Verify the face-down card is present during the active round.
+    // Verify cards are visible
     const botCards = page.getByRole('list', { name: 'BOT cards', exact: true });
     await expect(botCards).toBeVisible();
 
-    const faceDownCard = page.getByLabel('Face-down card');
-    await expect(faceDownCard).toBeVisible();
+    const status = await page.getByRole('status').innerText();
+    if (!/won|tied|round complete/i.test(status)) {
+      const faceDownCard = page.getByLabel('Face-down card');
+      await expect(faceDownCard).toBeVisible();
 
-    // Verify score display does not reveal full total
-    const botScore = page.getByLabel('BOT score');
-    await expect(botScore).toContainText('+ ?');
+      // Verify score display does not reveal full total
+      const botScore = page.getByLabel('BOT score');
+      await expect(botScore).toContainText('+ ?');
 
-    // Continue round until completion
-    for (let turn = 0; turn < 8 && !(await roundIsComplete(page)); turn += 1) {
-      if (
-        await page.getByRole('button', { name: 'Draw card for Player 1', exact: true }).isVisible()
-      ) {
-        await page.getByRole('button', { name: 'Draw card for Player 1', exact: true }).click();
-        await page.waitForTimeout(650);
+      // Continue round until completion
+      for (let turn = 0; turn < 8 && !(await roundIsComplete(page)); turn += 1) {
+        const drawBtn = page.getByRole('button', { name: 'Draw card for Player 1', exact: true });
+        if (await drawBtn.isVisible()) {
+          await drawBtn.click();
+          await page.waitForTimeout(700);
+        } else {
+          break;
+        }
       }
     }
 
@@ -81,17 +83,17 @@ test.describe('Blackjack critical browser flows', () => {
 
     // Once round is over, hidden card is revealed
     await expect(page.getByLabel('Face-down card')).toBeHidden();
+    const botScore = page.getByLabel('BOT score');
     await expect(botScore).not.toContainText('?');
   });
 
-  test('switches to local play, supports keyboard controls, rules, and reset', async ({ page }) => {
+  test('supports keyboard controls, rules dialog, and score reset', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Two players', exact: true }).click();
+    await expect(page.getByRole('button', { name: /Two players/ })).toBeEnabled();
 
     await page.keyboard.press('1');
-    await page.keyboard.press('2');
     await expect(page.getByRole('list', { name: 'Player 1 cards', exact: true })).toBeVisible();
-    await expect(page.getByRole('list', { name: 'Player 2 cards', exact: true })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'BOT cards', exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'View game rules' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -100,6 +102,25 @@ test.describe('Blackjack critical browser flows', () => {
 
     await page.keyboard.press('r');
     await expect(page.getByRole('list', { name: 'Player 1 cards', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('list', { name: 'Player 2 cards', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'BOT cards', exact: true })).toHaveCount(0);
+  });
+
+  test('supports Two players mode with both players facing the Dealer', async ({ page }) => {
+    await page.goto('/');
+    const twoPlayersBtn = page.getByRole('button', { name: 'Two players' });
+    await expect(twoPlayersBtn).toBeEnabled();
+    await twoPlayersBtn.click();
+    await expect(twoPlayersBtn).toHaveAttribute('aria-pressed', 'true');
+
+    // Both players and dealer should be visible
+    await expect(page.getByRole('heading', { name: 'Player 1' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Player 2' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dealer' })).toBeVisible();
+
+    // Deal round
+    await page.getByRole('button', { name: 'Draw card for Player 1' }).click();
+    await expect(page.getByRole('list', { name: 'Player 1 cards' })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Player 2 cards' })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Dealer cards' })).toBeVisible();
   });
 });

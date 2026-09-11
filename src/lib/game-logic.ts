@@ -9,11 +9,15 @@ export interface Card {
 export interface PlayerScoreboard {
   p1: number;
   p2: number;
+  dealer: number;
+  ties: number;
 }
 
 export interface NpcScoreboard {
   p1: number;
   bot: number;
+  dealer: number;
+  ties: number;
 }
 
 export interface Scoreboards {
@@ -21,9 +25,11 @@ export interface Scoreboards {
   npc: NpcScoreboard;
 }
 
-export type Winner = 'p1' | 'p2' | 'tie';
+export type Winner = 'p1' | 'p2' | 'dealer' | 'tie';
 
 export type VisibilityMode = 'open' | 'classic';
+
+export type GamePhase = 'idle' | 'player-turn' | 'p2-turn' | 'dealer-turn' | 'round-ended';
 
 /**
  * Calculates the total value of a blackjack hand, handling Aces appropriately (11 or 1).
@@ -56,6 +62,34 @@ export function isBust(score: number): boolean {
 }
 
 /**
+ * Checks whether a 2-card hand is a natural Blackjack (21 with 2 cards).
+ */
+export function isBlackjack(cards: Card[]): boolean {
+  return cards.length === 2 && calculateHandValue(cards) === 21;
+}
+
+/**
+ * Standard casino dealer rule: Dealer must hit on any total below 17, and stand on 17 or more.
+ */
+export function dealerMustHit(dealerScore: number): boolean {
+  return dealerScore < 17;
+}
+
+/**
+ * Compares a player's final score directly against the dealer's score.
+ */
+export function compareAgainstDealer(
+  playerScore: number,
+  dealerScore: number,
+): 'player' | 'dealer' | 'tie' {
+  if (isBust(playerScore) && isBust(dealerScore)) return 'tie';
+  if (isBust(playerScore)) return 'dealer';
+  if (isBust(dealerScore)) return 'player';
+  if (playerScore === dealerScore) return 'tie';
+  return playerScore > dealerScore ? 'player' : 'dealer';
+}
+
+/**
  * Determines the round winner between player 1 and player 2 / bot,
  * respecting any manual winner override (e.g. instant win on 21 or bust event).
  */
@@ -70,8 +104,7 @@ export function determineWinner(p1Score: number, p2Score: number, manualWinner?:
 
 /**
  * Decision rule for the NPC bot.
- * Bot hits if behind p1 (and p1 didn't bust), or ties below 17.
- * Bot never hits at or above 21, or if player has busted.
+ * In classic rules, bot stands on 17+, never hits if player busted or if at 21.
  */
 export function shouldBotHit(p1Score: number, botScore: number): boolean {
   let shouldHit = false;
@@ -92,8 +125,8 @@ export function shouldBotHit(p1Score: number, botScore: number): boolean {
  */
 export function createScoreboards(): Scoreboards {
   return {
-    local: { p1: 0, p2: 0 },
-    npc: { p1: 0, bot: 0 },
+    local: { p1: 0, p2: 0, dealer: 0, ties: 0 },
+    npc: { p1: 0, bot: 0, dealer: 0, ties: 0 },
   };
 }
 
