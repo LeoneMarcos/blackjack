@@ -27,8 +27,6 @@ export interface Scoreboards {
 
 export type Winner = 'p1' | 'p2' | 'dealer' | 'tie';
 
-export type VisibilityMode = 'open' | 'classic';
-
 export type GamePhase = 'idle' | 'player-turn' | 'p2-turn' | 'dealer-turn' | 'round-ended';
 
 /**

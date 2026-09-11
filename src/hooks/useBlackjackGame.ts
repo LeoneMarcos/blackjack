@@ -13,7 +13,6 @@ import {
   type GamePhase,
   type HandOutcome,
   type Scoreboards,
-  type VisibilityMode,
 } from '../lib/game-logic';
 import { createDeck } from '../lib/deck';
 
@@ -36,7 +35,6 @@ export interface GameState {
   deck: Card[];
   phase: GamePhase;
   npcActive: boolean;
-  visibilityMode: VisibilityMode;
   scoreboards: Scoreboards;
   gameOver: boolean;
   notice: RoundNotice | null;
@@ -49,14 +47,12 @@ type Action =
   | { type: 'dealer-step' }
   | { type: 'draw'; player: PlayerId }
   | { type: 'toggle-npc' }
-  | { type: 'set-visibility-mode'; mode: VisibilityMode }
   | { type: 'reset-scores' }
   | { type: 'dismiss-notice' };
 
 function dealInitialRound(
   scoreboards: Scoreboards,
   npcActive: boolean,
-  visibilityMode: VisibilityMode = 'classic',
   currentDeck?: Card[],
 ): GameState {
   const deck = currentDeck && currentDeck.length >= 15 ? [...currentDeck] : createDeck();
@@ -83,7 +79,6 @@ function dealInitialRound(
         deck,
         phase: 'round-ended',
         npcActive,
-        visibilityMode,
         scoreboards,
         gameOver: true,
         notice: { winner: 'tie', message: 'Both have Blackjack! Round tied (0 pts)' },
@@ -106,7 +101,6 @@ function dealInitialRound(
         deck,
         phase: 'round-ended',
         npcActive,
-        visibilityMode,
         scoreboards: updatedScores,
         gameOver: true,
         notice: { winner: 'dealer', message: 'Blackjack! Dealer won the round' },
@@ -125,7 +119,6 @@ function dealInitialRound(
         deck,
         phase: 'round-ended',
         npcActive,
-        visibilityMode,
         scoreboards: updatedScores,
         gameOver: true,
         notice: { winner: 'p1', message: 'Blackjack! Player 1 won the round' },
@@ -139,7 +132,6 @@ function dealInitialRound(
       deck,
       phase: 'player-turn',
       npcActive,
-      visibilityMode,
       scoreboards,
       gameOver: false,
       notice: null,
@@ -175,7 +167,6 @@ function dealInitialRound(
       deck,
       phase: 'round-ended',
       npcActive,
-      visibilityMode,
       scoreboards: updatedScores,
       gameOver: true,
       notice: { winner: points.dealer === 1 ? 'dealer' : 'tie', message },
@@ -200,7 +191,6 @@ function dealInitialRound(
       deck,
       phase: 'round-ended',
       npcActive,
-      visibilityMode,
       scoreboards: updatedScores,
       gameOver: true,
       notice: { winner: 'both', message: 'Blackjack! Both Player 1 and Player 2 won (+1 pt each)' },
@@ -215,7 +205,6 @@ function dealInitialRound(
       deck,
       phase: 'p2-turn',
       npcActive,
-      visibilityMode,
       scoreboards,
       gameOver: false,
       notice: { winner: 'p1', message: "Player 1 has Blackjack (21)! Player 2's turn" },
@@ -229,7 +218,6 @@ function dealInitialRound(
     deck,
     phase: 'player-turn',
     npcActive,
-    visibilityMode,
     scoreboards,
     gameOver: false,
     notice: null,
@@ -567,7 +555,7 @@ function handleDealerStep(state: GameState): GameState {
 
 function handleDrawCompat(state: GameState, player: PlayerId): GameState {
   if (state.phase === 'idle' || state.gameOver) {
-    return dealInitialRound(state.scoreboards, state.npcActive, state.visibilityMode, state.deck);
+    return dealInitialRound(state.scoreboards, state.npcActive, state.deck);
   }
   return handleHit(state, player);
 }
@@ -575,7 +563,6 @@ function handleDrawCompat(state: GameState, player: PlayerId): GameState {
 function createIdleState(
   scoreboards: Scoreboards,
   npcActive: boolean,
-  visibilityMode: VisibilityMode = 'classic',
 ): GameState {
   return {
     dealer: { cards: [], score: 0 },
@@ -584,7 +571,6 @@ function createIdleState(
     deck: createDeck(),
     phase: 'idle',
     npcActive,
-    visibilityMode,
     scoreboards,
     gameOver: false,
     notice: null,
@@ -594,7 +580,7 @@ function createIdleState(
 function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'deal':
-      return dealInitialRound(state.scoreboards, state.npcActive, state.visibilityMode, state.deck);
+      return dealInitialRound(state.scoreboards, state.npcActive, state.deck);
     case 'hit':
       return handleHit(state, action.player ?? 'p1');
     case 'stand':
@@ -604,11 +590,9 @@ function reducer(state: GameState, action: Action): GameState {
     case 'draw':
       return handleDrawCompat(state, action.player);
     case 'toggle-npc':
-      return createIdleState(state.scoreboards, !state.npcActive, state.visibilityMode);
-    case 'set-visibility-mode':
-      return { ...state, visibilityMode: action.mode };
+      return createIdleState(state.scoreboards, !state.npcActive);
     case 'reset-scores':
-      return createIdleState(createScoreboards(), state.npcActive, state.visibilityMode);
+      return createIdleState(createScoreboards(), state.npcActive);
     case 'dismiss-notice':
       return { ...state, notice: null };
     default:
@@ -617,7 +601,7 @@ function reducer(state: GameState, action: Action): GameState {
 }
 
 function createInitialState(): GameState {
-  return createIdleState(createScoreboards(), true, 'classic');
+  return createIdleState(createScoreboards(), true);
 }
 
 export function useBlackjackGame() {
@@ -631,7 +615,7 @@ export function useBlackjackGame() {
     }, 650);
 
     return () => window.clearTimeout(timeout);
-  }, [state.phase, state.gameOver, state.dealer.score]);
+  }, [state.phase, state.gameOver, state.dealer.score, state.dealer.cards.length]);
 
   useEffect(() => {
     if (!state.notice) return;
@@ -646,7 +630,6 @@ export function useBlackjackGame() {
     dealRound: () => dispatch({ type: 'deal' }),
     drawCard: (player: PlayerId) => dispatch({ type: 'draw', player }),
     toggleNpc: () => dispatch({ type: 'toggle-npc' }),
-    setVisibilityMode: (mode: VisibilityMode) => dispatch({ type: 'set-visibility-mode', mode }),
     resetScores: () => dispatch({ type: 'reset-scores' }),
   };
 }
