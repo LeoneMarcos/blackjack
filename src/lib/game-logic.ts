@@ -9,11 +9,15 @@ export interface Card {
 export interface PlayerScoreboard {
   p1: number;
   p2: number;
+  dealer: number;
+  ties: number;
 }
 
 export interface NpcScoreboard {
   p1: number;
   bot: number;
+  dealer: number;
+  ties: number;
 }
 
 export interface Scoreboards {
@@ -21,7 +25,9 @@ export interface Scoreboards {
   npc: NpcScoreboard;
 }
 
-export type Winner = 'p1' | 'p2' | 'tie';
+export type Winner = 'p1' | 'p2' | 'dealer' | 'tie';
+
+export type GamePhase = 'idle' | 'player-turn' | 'p2-turn' | 'dealer-turn' | 'round-ended';
 
 /**
  * Calculates the total value of a blackjack hand, handling Aces appropriately (11 or 1).
@@ -39,10 +45,141 @@ export function calculateHandValue(cards: Card[]): number {
 }
 
 /**
+ * Calculates hand value excluding specified hidden card indices.
+ */
+export function calculateVisibleHandValue(cards: Card[], hiddenIndices: number[] = []): number {
+  const visibleCards = cards.filter((_, idx) => !hiddenIndices.includes(idx));
+  return calculateHandValue(visibleCards);
+}
+
+/**
  * Determines whether a given score exceeds 21.
  */
 export function isBust(score: number): boolean {
   return score > 21;
+}
+
+/**
+ * Checks whether a 2-card hand is a natural Blackjack (21 with 2 cards).
+ */
+export function isBlackjack(cards: Card[]): boolean {
+  return cards.length === 2 && calculateHandValue(cards) === 21;
+}
+
+/**
+ * Standard casino dealer rule: Dealer must hit on any total below 17, and stand on 17 or more.
+ */
+export function dealerMustHit(dealerScore: number): boolean {
+  return dealerScore < 17;
+}
+
+/**
+ * Advances local two-player play after Player 1 finishes.
+ * A Player 2 natural Blackjack is already complete, so their action phase is skipped.
+ */
+export function nextPhaseAfterPlayerOne(p2Cards: Card[]): GamePhase {
+  return isBlackjack(p2Cards) ? 'dealer-turn' : 'p2-turn';
+}
+
+/**
+ * Compares a player's final score directly against the dealer's score.
+ */
+export function compareAgainstDealer(
+  playerScore: number,
+  dealerScore: number,
+): 'player' | 'dealer' | 'tie' {
+  if (isBust(playerScore) && isBust(dealerScore)) return 'tie';
+  if (isBust(playerScore)) return 'dealer';
+  if (isBust(dealerScore)) return 'player';
+  if (playerScore === dealerScore) return 'tie';
+  return playerScore > dealerScore ? 'player' : 'dealer';
+}
+
+export type HandOutcome = 'win' | 'lose' | 'tie';
+
+/**
+ * Evaluates a player's hand against the dealer's hand under Blackjack rules.
+ */
+export function evaluateHandVsDealer(
+  playerHand: { score: number; cards?: Card[] },
+  dealerHand: { score: number; cards?: Card[] },
+): HandOutcome {
+  const pBust = isBust(playerHand.score);
+  const dBust = isBust(dealerHand.score);
+
+  if (pBust) return 'lose';
+  if (dBust) return 'win';
+
+  const pBJ = playerHand.cards ? isBlackjack(playerHand.cards) : false;
+  const dBJ = dealerHand.cards ? isBlackjack(dealerHand.cards) : false;
+
+  if (pBJ && dBJ) return 'tie';
+  if (pBJ) return 'win';
+  if (dBJ) return 'lose';
+
+  if (playerHand.score > dealerHand.score) return 'win';
+  if (playerHand.score < dealerHand.score) return 'lose';
+  return 'tie';
+}
+
+export interface TwoPlayerRoundPoints {
+  p1: number;
+  p2: number;
+  dealer: number;
+}
+
+/**
+ * Calculates binary points for Two Players mode:
+ * - Player 1 gets 1 point if they beat the dealer, 0 on tie or loss.
+ * - Player 2 gets 1 point if they beat the dealer, 0 on tie or loss.
+ * - Dealer gets 1 point only if they beat BOTH players; 0 if dealer ties or loses to either.
+ */
+export function calculateTwoPlayerRoundPoints(
+  p1Outcome: HandOutcome,
+  p2Outcome: HandOutcome,
+): TwoPlayerRoundPoints {
+  return {
+    p1: p1Outcome === 'win' ? 1 : 0,
+    p2: p2Outcome === 'win' ? 1 : 0,
+    dealer: p1Outcome === 'lose' && p2Outcome === 'lose' ? 1 : 0,
+  };
+}
+
+export type StationOutcome = 'win' | 'lose' | 'tie' | 'none';
+
+/**
+ * Computes visual outcome states for Dealer, Player 1, and Player 2 stations.
+ */
+export function getStationOutcomes(
+  p1Hand: { score: number; cards: Card[] },
+  p2Hand: { score: number; cards: Card[] },
+  dealerHand: { score: number; cards: Card[] },
+  isGameOver: boolean,
+  isBotMode: boolean,
+): { p1: StationOutcome; p2: StationOutcome; dealer: StationOutcome } {
+  if (!isGameOver) {
+    return { p1: 'none', p2: 'none', dealer: 'none' };
+  }
+
+  const p1Out = evaluateHandVsDealer(p1Hand, dealerHand);
+
+  if (isBotMode) {
+    const dealerOut: StationOutcome = p1Out === 'win' ? 'lose' : p1Out === 'lose' ? 'win' : 'tie';
+    return { p1: p1Out, p2: 'none', dealer: dealerOut };
+  }
+
+  const p2Out = evaluateHandVsDealer(p2Hand, dealerHand);
+
+  let dealerOut: StationOutcome;
+  if (p1Out === 'lose' && p2Out === 'lose') {
+    dealerOut = 'win';
+  } else if (p1Out === 'win' || p2Out === 'win') {
+    dealerOut = 'lose';
+  } else {
+    dealerOut = 'tie';
+  }
+
+  return { p1: p1Out, p2: p2Out, dealer: dealerOut };
 }
 
 /**
@@ -60,8 +197,7 @@ export function determineWinner(p1Score: number, p2Score: number, manualWinner?:
 
 /**
  * Decision rule for the NPC bot.
- * Bot hits if behind p1 (and p1 didn't bust), or ties below 17.
- * Bot never hits at or above 21, or if player has busted.
+ * In classic rules, bot stands on 17+, never hits if player busted or if at 21.
  */
 export function shouldBotHit(p1Score: number, botScore: number): boolean {
   let shouldHit = false;
@@ -82,8 +218,8 @@ export function shouldBotHit(p1Score: number, botScore: number): boolean {
  */
 export function createScoreboards(): Scoreboards {
   return {
-    local: { p1: 0, p2: 0 },
-    npc: { p1: 0, bot: 0 },
+    local: { p1: 0, p2: 0, dealer: 0, ties: 0 },
+    npc: { p1: 0, bot: 0, dealer: 0, ties: 0 },
   };
 }
 
