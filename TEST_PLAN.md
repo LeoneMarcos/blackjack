@@ -2,27 +2,47 @@
 
 ## Critical flows
 
-- Load the single-screen game and verify the title and default BOT mode.
-- Draw for Player 1 and wait for the BOT response.
-- Complete a BOT round and deal a new round.
-- Switch to local mode, draw for both players with keyboard `1` and `2`, open and close rules with `Escape`, and reset with `R`.
-- Capture the approved visual flow with rules, BOT play, local play and round feedback.
+- Load the game and verify the default BOT mode.
+- Complete a Player 1 vs Dealer round and verify Dealer autoplay.
+- Confirm the Dealer hole card remains hidden until the Dealer turn.
+- Verify Dealer hits below 17 and stands on 17+.
+- Switch to Two Players and complete the sequential Player 1 → Player 2 → Dealer flow.
+- Verify natural Blackjack can skip an already-complete player action phase.
+- Verify per-player binary scoring and isolated mode scoreboards.
+- Verify keyboard shortcuts do not override focused interactive controls.
+- Open and close the rules dialog with keyboard recovery.
+- Verify timer completion, replay/reset, responsive layouts, and no page errors.
+- Capture the canonical showcase from the real game flow.
 
 ## Commands
 
-- `npm run test:e2e` runs the versioned Chromium suite through `playwright.config.ts`.
-- `npm run test:e2e:visual-flow` runs the visual flow with Playwright video enabled.
-- `npm run showcase:prepare` captures a headed WebM, retains checkpoints, and converts it to H.264 MP4.
-- `npm run showcase:publish` uploads the MP4 through GitHub CLI, verifies the authenticated attachment, updates README and closes the temporary helper issue.
+```bash
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
+npm run showcase:prepare
+```
 
-## Evidence from 2026-09-05
+## Final release evidence — 2026-09-11
 
-`npm run test:e2e`: **PASS**, 3 tests passed in Chromium. The suite covers BOT response and replay, local keyboard controls, rules dialog recovery and score reset, plus the visual flow's round feedback.
+The final feature branch passed the complete CI gate before merge:
 
-`npm run showcase:prepare`: **PASS**. Raw source: `showcase-assets/raw/blackjack-showcase-raw.webm`. The converter trims the first 0.08 seconds to remove the partially painted startup frame, then writes `showcase-assets/blackjack-showcase.mp4` as H.264, yuv420p, 1440×900, 14.84 seconds, 350,058 bytes. Checkpoints are in `showcase-assets/screenshots/` and were visually inspected, including rules, BOT result, local cards, local result and a mid-video BOT-thinking frame.
+- `npm run format:check`: PASS
+- `npm run lint`: PASS
+- `npm run typecheck`: PASS
+- `npm test`: PASS — 47 unit/component tests
+- `npm run build`: PASS
+- `npm run test:e2e`: PASS — 5 Playwright specs
 
-`npm run showcase:publish`: **PASS**. GitHub accepted the attachment as `video/mp4`; the verified user-attachment URL is now in the local README Showcase section. The temporary upload issue was closed. The repository was not committed or pushed as part of this task.
+GitHub Actions CI run #51 completed successfully on the final PR head.
 
-## Scope limits
+The canonical showcase was regenerated after the product flow was finalized. The resulting MP4 is H.264/yuv420p at 1440×900 with a 19.00-second duration. The media set includes BOT state, Two Players in-round state with the Dealer hole card hidden, Two Players final state with the Dealer revealed, mobile state, screenshots, GIF preview, raw WebM, and MP4.
 
-The E2E suite runs Chromium locally and does not yet run in CI. Firefox/WebKit, Lighthouse, axe-core and full raw-video playback were not part of this capture pass. No secrets are stored in the repository or artifacts.
+The capture script is state-aware and fails on incomplete flows instead of silently producing misleading media.
+
+## Scope
+
+Automated validation targets the supported Chromium release flow. The application remains client-only and stores no secrets in source or showcase artifacts. Any future game-rule or interaction-flow change must update affected tests and regenerate canonical showcase media.
