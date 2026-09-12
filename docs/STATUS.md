@@ -1,14 +1,20 @@
-# Release review
+# Release status
 
-Reviewed 2026-09-09. Source: the code and media in the release commit containing this record; checks ran against that working tree before commit.
+Finalized 2026-09-12 from the implementation merged through PR #11 and the canonical showcase refresh that followed it.
 
 | Area | Result | Evidence |
 | --- | --- | --- |
-| Game logic | Verified | 19 unit tests; build, lint and typecheck passed |
-| Browser flows | Verified | Existing 3-test Playwright suite passed; independent production-preview checks at 1440px and 390px covered keyboard dealing, rules Escape/focus recovery, overflow and page errors |
-| Showcase | Verified | Real 18.4s H.264 recording, 1440×900; playback advanced without media errors; desktop/mobile captures and sampled video frames visually reviewed |
-| README | Reviewed | Architecture paths and local media links checked against the release files |
+| Product rules | Verified | Classic Dealer hole card; Dealer hits below 17 and stands on 17+; sequential Player 1 → Player 2 → Dealer flow |
+| Scoring | Verified | Binary per-player outcomes against Dealer; Dealer scores in Two Players mode only when defeating both players; mode scoreboards isolated |
+| Edge cases | Verified | Natural Blackjack turn completion, soft-Ace Dealer progression, early Dealer status, focused-control keyboard behavior |
+| Unit/component tests | Passed | 47 tests |
+| Browser flows | Passed | 5 Playwright specs |
+| CI | Passed | GitHub Actions CI run #51 on the final PR head |
+| Showcase | Refreshed | Canonical H.264 MP4, raw WebM, GIF and screenshots regenerated from the final sequential flow |
+| README/docs | Synchronized | Product, architecture, design, validation and release status aligned with the merged implementation |
 
-The [current CI checks](https://github.com/LeoneMarcos/blackjack/actions) track automated validation. Hosting status belongs to the Cloudflare check on the deployed commit; this record describes local release validation.
+## Final implementation state
 
-If game UI or flows change, review the affected documentation and recapture the showcase during the next release. Source changes after this review require reassessing dependent evidence.
+PR #11 merged the canonical game behavior into `main` on 2026-09-11. PR #14 supplied the final state-aware showcase capture and refreshed media before that merge. A subsequent GitHub Actions commit refreshed the canonical showcase assets on `main`.
+
+The implementation is considered complete. Future work should be treated as a new product change rather than an unfinished item from this release.
