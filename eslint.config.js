@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'node_modules', 'showcase-assets', '**/.wrangler/**'],
+    ignores: ['dist', 'node_modules', 'showcase-assets'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
