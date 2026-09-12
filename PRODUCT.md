@@ -26,7 +26,7 @@ Blackjack is a casino-style card game with three supported modes:
 - **Guest interface:** Guest (Player 2) is untrusted and can only submit versioned, typed intention messages (`ready`, `hit`, `stand`, `rematch`). Guest actions are validated by the Host and only accepted during Player 2's turn.
 - **Readiness gating:** Dealing a round is gated on both players indicating ready state (`hostReady` and `guestReady`).
 - **Information hiding:** The Dealer hole card, undealt deck, and RNG metadata are strictly concealed on the Host and never transmitted over the network until valid revelation during the Dealer turn.
-- **Signaling:** Cloudflare Worker with Durable Objects (`RoomDO`) handles room code allocation and WebRTC signaling exchange (SDP offer/answer and ICE candidates). No gameplay traffic passes through the server once the DataChannel is open.
+- **Signaling:** The standalone `blackjack-signaling` Cloudflare Worker with Durable Objects (`RoomDO`) handles room allocation and WebRTC signaling exchange (SDP offer/answer and ICE candidates). No gameplay traffic passes through the service once the DataChannel is open.
 
 ## Product boundaries
 
