@@ -1248,62 +1248,8 @@
   }
 }
 @media (max-width: 430px) {
-  .dealer-station__header,
-  .player-panel__heading {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    column-gap: 8px;
-    row-gap: 4px;
-  }
-  .dealer-station__info,
-  .player-panel__heading > div:first-child {
-    min-width: 0;
-  }
-  .dealer-station__score-group,
-  .player-panel__score-group {
-    display: contents;
-  }
-  .dealer-station__header .score,
-  .player-panel__heading .score {
-    grid-column: 2;
-    grid-row: 1;
-    width: auto;
-    white-space: nowrap;
-  }
-  .dealer-station__header .outcome-badge,
-  .player-panel__heading .outcome-badge {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-self: end;
-    white-space: nowrap;
-    font-size: 10px;
-    padding-inline: 8px;
-  }
   .player-panel h2 {
     font-size: 17px;
-    white-space: nowrap;
-  }
-  .table-grid--two-players .player-panel--has-outcome .player-panel__heading {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-  }
-  .table-grid--two-players .player-panel--has-outcome .player-panel__score-group {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-    margin: 0;
-  }
-  .table-grid--two-players .player-panel--has-outcome .score {
-    align-self: flex-end;
-  }
-  .table-grid--two-players .player-panel--has-outcome .outcome-badge {
-    grid-column: auto;
-    grid-row: auto;
-    align-self: flex-end;
   }
   .cards,
   .empty-hand {
