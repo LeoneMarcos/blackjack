@@ -5,8 +5,20 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import { Bot, CircleHelp, Hand, RotateCcw, Users, X } from 'lucide-react';
+import {
+  Bot,
+  Check,
+  CircleHelp,
+  Copy,
+  Globe,
+  Hand,
+  LogOut,
+  RotateCcw,
+  Users,
+  X,
+} from 'lucide-react';
 import { useBlackjackGame } from './hooks/useBlackjackGame';
+import { useOnlineBlackjack } from './hooks/useOnlineBlackjack';
 import {
   calculateVisibleHandValue,
   getStationOutcomes,
@@ -116,6 +128,10 @@ function RulesModal({ onClose }: { onClose: () => void }) {
     [
       'Two Players Scoring',
       'Players earn 1 pt for beating the Dealer (0 on tie or loss). The Dealer earns 1 pt only if beating both players.',
+    ],
+    [
+      'Online P2P',
+      'Host as Player 1 with authoritative state & dealer autoplay. Guest acts as Player 2 via encrypted WebRTC.',
     ],
     ['Controls', 'H or 1 to Hit, S or Space to Stand, Space or D to Deal again, R to Reset.'],
   ];
@@ -443,7 +459,21 @@ function PlayerPanel({
 
 function App() {
   const { state, hit, stand, dealRound, drawCard, toggleNpc, resetScores } = useBlackjackGame();
+  const [mode, setMode] = useState<'bot' | 'local' | 'online'>('bot');
+  const [joinCode, setJoinCode] = useState('');
+  const [copied, setCopied] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const online = useOnlineBlackjack();
+
+  const activeMode = mode === 'online' ? 'online' : state.npcActive ? 'bot' : 'local';
+
+  const copyRoomCode = () => {
+    if (online.roomId) {
+      void navigator.clipboard?.writeText(online.roomId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const isDealerHidden =
     state.phase !== 'dealer-turn' && !state.gameOver && state.dealer.cards.length >= 2;
@@ -532,6 +562,44 @@ function App() {
     dealerStatusText = 'Ready to deal';
   }
 
+  let onlineDealerStatusText = 'Dealer stands on 17 · Draws to 16';
+  if (online.publicState) {
+    if (online.publicState.phase === 'dealer-turn') {
+      onlineDealerStatusText = 'Dealer is drawing (stands on 17)...';
+    } else if (
+      online.publicState.gameOver &&
+      isBlackjack(online.publicState.dealer.cards as Card[])
+    ) {
+      onlineDealerStatusText = 'Dealer has Blackjack';
+    } else if (online.publicState.gameOver) {
+      const dScore = Number(online.publicState.dealer.score);
+      onlineDealerStatusText =
+        dScore > 21 ? `Dealer busted with ${dScore}` : `Dealer stands on ${dScore}`;
+    } else if (online.publicState.phase === 'idle') {
+      onlineDealerStatusText = 'Ready to deal';
+    }
+  }
+
+  const onlineStationOutcomes = online.publicState
+    ? getStationOutcomes(
+        online.publicState.p1,
+        online.publicState.p2,
+        {
+          score:
+            typeof online.publicState.dealer.score === 'number'
+              ? online.publicState.dealer.score
+              : 0,
+          cards: online.publicState.dealer.cards as Card[],
+        },
+        online.publicState.gameOver,
+        false,
+      )
+    : {
+        p1: 'none' as StationOutcome,
+        p2: 'none' as StationOutcome,
+        dealer: 'none' as StationOutcome,
+      };
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -550,6 +618,65 @@ function App() {
       if (isInteractiveTarget && isNativeActivationKey) return;
 
       const key = event.key.toLowerCase();
+
+      if (activeMode === 'online') {
+        if (online.connectionState === 'connected' && online.publicState) {
+          if (key === 'r' && online.role === 'host') {
+            online.resetScores();
+            return;
+          }
+          const phase = online.publicState.phase;
+          if (online.role === 'host') {
+            if (phase === 'idle') {
+              if (key === '1' || key === 'd' || event.code === 'Space' || event.key === 'Enter') {
+                event.preventDefault();
+                if (!online.publicState.hostReady || !online.publicState.guestReady) {
+                  online.toggleReady();
+                } else {
+                  online.deal();
+                }
+              }
+            } else if (phase === 'round-ended') {
+              if (
+                key === '1' ||
+                key === 'd' ||
+                key === 'r' ||
+                event.code === 'Space' ||
+                event.key === 'Enter'
+              ) {
+                event.preventDefault();
+                online.requestRematch();
+              }
+            } else if (phase === 'player-turn') {
+              if (key === 'h' || key === '1') online.hit();
+              if (key === 's' || event.code === 'Space') {
+                event.preventDefault();
+                online.stand();
+              }
+            }
+          } else if (online.role === 'guest') {
+            if (phase === 'p2-turn') {
+              if (key === 'h' || key === '2') online.hit();
+              if (key === 's' || event.code === 'Space') {
+                event.preventDefault();
+                online.stand();
+              }
+            } else if (phase === 'idle') {
+              if (key === '2' || event.code === 'Space' || event.key === 'Enter') {
+                event.preventDefault();
+                online.toggleReady();
+              }
+            } else if (phase === 'round-ended') {
+              if (key === 'r' || event.code === 'Space' || event.key === 'Enter') {
+                event.preventDefault();
+                online.requestRematch();
+              }
+            }
+          }
+        }
+        return;
+      }
+
       if (key === 'r') {
         resetScores();
         return;
@@ -577,10 +704,38 @@ function App() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [hit, stand, dealRound, resetScores, state.phase, rulesOpen]);
+  }, [hit, stand, dealRound, resetScores, state.phase, rulesOpen, activeMode, online]);
 
   let statusMessage = state.notice?.message;
-  if (!statusMessage) {
+  if (activeMode === 'online' && online.publicState) {
+    if (online.publicState.notice) {
+      statusMessage = online.publicState.notice.message;
+    } else if (online.publicState.phase === 'player-turn') {
+      statusMessage =
+        online.role === 'host'
+          ? "Player 1's turn (You) — Hit to draw or Stand to hold"
+          : "Player 1's turn (Host) — Waiting for Player 1";
+    } else if (online.publicState.phase === 'p2-turn') {
+      statusMessage =
+        online.role === 'guest'
+          ? "Player 2's turn (You) — Hit to draw or Stand to hold"
+          : "Player 2's turn (Guest) — Waiting for Player 2";
+    } else if (online.publicState.phase === 'dealer-turn') {
+      statusMessage = 'Dealer is playing — dealer must draw to 16, stand on 17';
+    } else if (online.publicState.phase === 'idle') {
+      if (!online.publicState.hostReady && !online.publicState.guestReady) {
+        statusMessage = 'Both players must click Ready to start';
+      } else if (online.publicState.hostReady && !online.publicState.guestReady) {
+        statusMessage = 'Player 1 ready — waiting for Player 2';
+      } else if (!online.publicState.hostReady && online.publicState.guestReady) {
+        statusMessage = 'Player 2 ready — waiting for Player 1';
+      } else {
+        statusMessage = 'Both players ready — Host may deal hand';
+      }
+    } else {
+      statusMessage = 'Round complete — deal again or request rematch';
+    }
+  } else if (!statusMessage) {
     if (state.phase === 'player-turn') {
       statusMessage = "Player 1's turn — Hit to draw or Stand to hold";
     } else if (state.phase === 'p2-turn') {
@@ -622,6 +777,102 @@ function App() {
         : undefined
     : undefined;
 
+  // Online Player 1 conditions:
+  const isOnlineRoundOver =
+    !online.publicState || online.publicState.gameOver || online.publicState.phase === 'idle';
+  const canOnlineP1Draw =
+    online.role === 'host' &&
+    (isOnlineRoundOver ||
+      (online.publicState?.phase === 'player-turn' && online.publicState.p1.score < 21));
+  const canOnlineP1Stand =
+    online.role === 'host' && !isOnlineRoundOver && (online.publicState?.p1.cards.length ?? 0) > 0;
+  const isOnlineP1StandDisabled =
+    online.publicState?.phase !== 'player-turn' || (online.publicState?.p1.score ?? 0) >= 21;
+  const onlineP1ActionLabel =
+    online.role === 'host'
+      ? online.publicState?.gameOver
+        ? online.publicState.rematchRequested.host
+          ? 'Rematch requested'
+          : 'Deal again'
+        : online.publicState?.phase === 'idle'
+          ? !online.publicState.hostReady
+            ? 'Click Ready'
+            : !online.publicState.guestReady
+              ? 'Waiting for Guest'
+              : 'Deal hand'
+          : 'Hit'
+      : online.publicState?.phase === 'player-turn'
+        ? "Player 1's turn"
+        : 'Waiting';
+  const onlineP1OnDraw =
+    online.publicState?.phase === 'idle'
+      ? !online.publicState.hostReady || !online.publicState.guestReady
+        ? online.toggleReady
+        : online.deal
+      : online.publicState?.gameOver
+        ? online.requestRematch
+        : online.hit;
+  const onlineP1StatusBadge =
+    online.publicState?.phase === 'idle'
+      ? online.publicState.hostReady
+        ? 'Ready'
+        : 'Not ready'
+      : online.publicState && !isOnlineRoundOver && online.publicState.phase !== 'player-turn'
+        ? online.publicState.p1.score > 21
+          ? `Busted with ${online.publicState.p1.score}`
+          : `Standing on ${online.publicState.p1.score}`
+        : online.publicState?.gameOver && online.publicState.rematchRequested.host
+          ? 'Wants Rematch'
+          : undefined;
+
+  // Online Player 2 conditions:
+  const canOnlineP2Draw =
+    online.role === 'guest' &&
+    (isOnlineRoundOver ||
+      (online.publicState?.phase === 'p2-turn' && online.publicState.p2.score < 21));
+  const canOnlineP2Stand =
+    online.role === 'guest' && !isOnlineRoundOver && (online.publicState?.p2.cards.length ?? 0) > 0;
+  const isOnlineP2StandDisabled =
+    online.publicState?.phase !== 'p2-turn' || (online.publicState?.p2.score ?? 0) >= 21;
+  const onlineP2ActionLabel =
+    online.role === 'guest'
+      ? online.publicState?.phase === 'idle'
+        ? online.publicState.guestReady
+          ? 'Ready'
+          : 'Click Ready'
+        : online.publicState?.gameOver
+          ? online.publicState.rematchRequested.guest
+            ? 'Rematch requested'
+            : 'Request Rematch'
+          : 'Hit'
+      : online.publicState?.phase === 'p2-turn'
+        ? "Player 2's turn"
+        : online.publicState?.gameOver && online.publicState.rematchRequested.guest
+          ? 'Guest wants Rematch'
+          : 'Waiting';
+  const onlineP2OnDraw =
+    online.publicState?.phase === 'idle'
+      ? online.toggleReady
+      : online.publicState?.gameOver
+        ? online.requestRematch
+        : online.hit;
+  const onlineP2StatusBadge =
+    online.publicState?.phase === 'idle'
+      ? online.publicState.guestReady
+        ? 'Ready'
+        : 'Not ready'
+      : online.publicState && !isOnlineRoundOver
+        ? online.publicState.phase === 'player-turn'
+          ? 'Waiting for Player 1...'
+          : online.publicState.phase === 'dealer-turn'
+            ? online.publicState.p2.score > 21
+              ? `Busted with ${online.publicState.p2.score}`
+              : `Standing on ${online.publicState.p2.score}`
+            : undefined
+        : online.publicState?.gameOver && online.publicState.rematchRequested.guest
+          ? 'Wants Rematch'
+          : undefined;
+
   return (
     <main className="app-shell" aria-labelledby="app-title">
       <header className="app-header">
@@ -636,9 +887,10 @@ function App() {
         <div className="mode-selector" role="group" aria-label="Game mode">
           <button
             type="button"
-            className={`mode-toggle ${state.npcActive ? 'mode-toggle--active' : ''}`}
-            aria-pressed={state.npcActive}
+            className={`mode-toggle ${activeMode === 'bot' ? 'mode-toggle--active' : ''}`}
+            aria-pressed={activeMode === 'bot'}
             onClick={() => {
+              setMode('bot');
               if (!state.npcActive) toggleNpc();
             }}
           >
@@ -647,14 +899,26 @@ function App() {
           </button>
           <button
             type="button"
-            className={`mode-toggle ${!state.npcActive ? 'mode-toggle--active' : ''}`}
-            aria-pressed={!state.npcActive}
+            className={`mode-toggle ${activeMode === 'local' ? 'mode-toggle--active' : ''}`}
+            aria-pressed={activeMode === 'local'}
             onClick={() => {
+              setMode('local');
               if (state.npcActive) toggleNpc();
             }}
           >
             <Users aria-hidden="true" />
             <span>Two players</span>
+          </button>
+          <button
+            type="button"
+            className={`mode-toggle ${activeMode === 'online' ? 'mode-toggle--active' : ''}`}
+            aria-pressed={activeMode === 'online'}
+            onClick={() => {
+              setMode('online');
+            }}
+          >
+            <Globe aria-hidden="true" />
+            <span>Online P2P</span>
           </button>
         </div>
 
@@ -673,147 +937,408 @@ function App() {
             className="icon-button"
             aria-label="Reset scores"
             title="Reset scores"
-            onClick={resetScores}
+            onClick={() => {
+              if (activeMode === 'online') {
+                online.resetScores();
+              } else {
+                resetScores();
+              }
+            }}
           >
             <RotateCcw aria-hidden="true" />
           </button>
         </div>
       </header>
 
-      <div className="table-surface">
-        <div className="table-top-bar">
-          {state.npcActive ? (
-            <div
-              className="scoreboard"
-              aria-label={`Score: Player 1 ${state.scoreboards.npc.p1}, Dealer ${state.scoreboards.npc.dealer}`}
-            >
-              <span className="scoreboard__label">Score</span>
-              <span
-                className={`scoreboard__player ${scoreGains.p1 ? 'scoreboard__player--bump' : ''}`}
-              >
-                P1
-                <span className="scoreboard__value-wrap">
-                  <strong>{state.scoreboards.npc.p1}</strong>
-                  {scoreGains.p1 && <span className="score-pop-badge">+1</span>}
-                </span>
-              </span>
-              <span className="scoreboard__divider" aria-hidden="true">
-                —
-              </span>
-              <span
-                className={`scoreboard__player ${scoreGains.dealer ? 'scoreboard__player--bump' : ''}`}
-              >
-                Dealer
-                <span className="scoreboard__value-wrap">
-                  <strong>{state.scoreboards.npc.dealer}</strong>
-                  {scoreGains.dealer && <span className="score-pop-badge">+1</span>}
-                </span>
-              </span>
+      {activeMode === 'online' ? (
+        <div className="table-surface">
+          {online.connectionState === 'idle' && (
+            <div className="online-lobby">
+              <div>
+                <h2>Online Multiplayer</h2>
+                <p>Peer-to-peer Blackjack with host authority & WebRTC DataChannels</p>
+              </div>
+              <div className="online-cards-grid">
+                <div className="online-card">
+                  <div>
+                    <h3>Host a Table</h3>
+                    <p>Create a private room and share the short code with Player 2.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="button button--primary"
+                    onClick={() => online.createRoom()}
+                  >
+                    <Hand aria-hidden="true" />
+                    <span>Create Room</span>
+                  </button>
+                </div>
+                <div className="online-card">
+                  <div>
+                    <h3>Join a Table</h3>
+                    <p>Enter the code from the host to join the table as Player 2.</p>
+                  </div>
+                  <div className="online-input-row">
+                    <input
+                      type="text"
+                      className="text-input"
+                      placeholder="CODE"
+                      maxLength={6}
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                      aria-label="Room code"
+                    />
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      disabled={joinCode.trim().length < 3}
+                      onClick={() => {
+                        if (joinCode.trim().length >= 3) {
+                          online.joinRoom(joinCode.trim());
+                        }
+                      }}
+                    >
+                      <span>Join</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          ) : (
-            <div
-              className="scoreboard"
-              aria-label={`Score: Player 1 ${state.scoreboards.local.p1}, Player 2 ${state.scoreboards.local.p2}, Dealer ${state.scoreboards.local.dealer}`}
-            >
-              <span className="scoreboard__label">Score</span>
-              <span
-                className={`scoreboard__player ${scoreGains.p1 ? 'scoreboard__player--bump' : ''}`}
-              >
-                P1
-                <span className="scoreboard__value-wrap">
-                  <strong>{state.scoreboards.local.p1}</strong>
-                  {scoreGains.p1 && <span className="score-pop-badge">+1</span>}
-                </span>
+          )}
+
+          {(online.connectionState === 'creating' || online.connectionState === 'waiting') && (
+            <div className="online-waiting-box">
+              <span className="eyebrow">Table Room Code</span>
+              <div className="room-code-badge">
+                <span>{online.roomId}</span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={copyRoomCode}
+                  aria-label="Copy room code"
+                  title="Copy room code"
+                >
+                  {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                </button>
+              </div>
+              <span className="status-pill status-pill--waiting">
+                <span className="status-pill__dot" aria-hidden="true" />
+                Waiting for Player 2 to join...
               </span>
-              <span className="scoreboard__divider" aria-hidden="true">
-                ·
-              </span>
-              <span
-                className={`scoreboard__player ${scoreGains.p2 ? 'scoreboard__player--bump' : ''}`}
-              >
-                P2
-                <span className="scoreboard__value-wrap">
-                  <strong>{state.scoreboards.local.p2}</strong>
-                  {scoreGains.p2 && <span className="score-pop-badge">+1</span>}
-                </span>
-              </span>
-              <span className="scoreboard__divider" aria-hidden="true">
-                —
-              </span>
-              <span
-                className={`scoreboard__player ${scoreGains.dealer ? 'scoreboard__player--bump' : ''}`}
-              >
-                Dealer
-                <span className="scoreboard__value-wrap">
-                  <strong>{state.scoreboards.local.dealer}</strong>
-                  {scoreGains.dealer && <span className="score-pop-badge">+1</span>}
-                </span>
-              </span>
+              <p className="hand-status">
+                Share this code with your opponent. The game will connect automatically when they
+                join.
+              </p>
+              <button type="button" className="button button--secondary" onClick={online.leaveRoom}>
+                <LogOut aria-hidden="true" />
+                <span>Cancel Table</span>
+              </button>
             </div>
+          )}
+
+          {online.connectionState === 'connecting' && (
+            <div className="online-waiting-box">
+              <span className="eyebrow">Connecting</span>
+              <span className="status-pill status-pill--connecting">
+                <span className="status-pill__dot" aria-hidden="true" />
+                Connecting via WebRTC...
+              </span>
+              <p className="hand-status">Establishing encrypted RTCDataChannel between peers...</p>
+              <button type="button" className="button button--secondary" onClick={online.leaveRoom}>
+                <span>Cancel</span>
+              </button>
+            </div>
+          )}
+
+          {(online.connectionState === 'error' || online.connectionState === 'disconnected') && (
+            <div className="online-waiting-box">
+              <span className="eyebrow">Connection alert</span>
+              <span className="status-pill status-pill--disconnected">
+                <span className="status-pill__dot" aria-hidden="true" />
+                {online.connectionState === 'error' ? 'Connection Error' : 'Disconnected'}
+              </span>
+              <p className="hand-status">{online.error || 'Connection was lost or failed.'}</p>
+              <div className="player-actions">
+                <button type="button" className="button button--primary" onClick={online.retry}>
+                  <RotateCcw aria-hidden="true" />
+                  <span>Retry</span>
+                </button>
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  onClick={online.leaveRoom}
+                >
+                  <span>Back to Lobby</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {online.connectionState === 'connected' && online.publicState && (
+            <>
+              <div className="online-top-bar">
+                <div
+                  className="scoreboard"
+                  aria-label={`Score: Player 1 ${online.publicState.scoreboards.local.p1}, Player 2 ${online.publicState.scoreboards.local.p2}, Dealer ${online.publicState.scoreboards.local.dealer}`}
+                >
+                  <span className="scoreboard__label">Score</span>
+                  <span className="scoreboard__player">
+                    P1 ({online.role === 'host' ? 'You' : 'Host'})
+                    <strong>{online.publicState.scoreboards.local.p1}</strong>
+                  </span>
+                  <span className="scoreboard__divider" aria-hidden="true">
+                    ·
+                  </span>
+                  <span className="scoreboard__player">
+                    P2 ({online.role === 'guest' ? 'You' : 'Guest'})
+                    <strong>{online.publicState.scoreboards.local.p2}</strong>
+                  </span>
+                  <span className="scoreboard__divider" aria-hidden="true">
+                    —
+                  </span>
+                  <span className="scoreboard__player">
+                    Dealer
+                    <strong>{online.publicState.scoreboards.local.dealer}</strong>
+                  </span>
+                </div>
+
+                <div className="online-meta-group">
+                  <span
+                    className="room-code-badge"
+                    style={{ fontSize: '13px', padding: '4px 10px', letterSpacing: '0.1em' }}
+                  >
+                    Room {online.roomId}
+                  </span>
+                  <span className="status-pill status-pill--connected">
+                    <span className="status-pill__dot" aria-hidden="true" />
+                    Connected
+                  </span>
+                  <span className="role-pill">
+                    {online.role === 'host' ? 'Host (Authority)' : 'Guest (Player 2)'}
+                  </span>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Leave table"
+                    title="Leave table"
+                    onClick={online.leaveRoom}
+                  >
+                    <LogOut aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+
+              <DealerStation
+                cards={online.publicState.dealer.cards as Card[]}
+                score={
+                  typeof online.publicState.dealer.score === 'number'
+                    ? online.publicState.dealer.score
+                    : 0
+                }
+                hiddenCardIndex={online.publicState.dealer.hasHiddenCard ? 1 : undefined}
+                statusText={onlineDealerStatusText}
+                isBotMode={false}
+                outcome={onlineStationOutcomes.dealer}
+              />
+
+              <div className="table-divider" aria-hidden="true" />
+
+              <div className="table-grid table-grid--two-players">
+                <PlayerPanel
+                  accent="first"
+                  seatLabel="Seat 01"
+                  cards={online.publicState.p1.cards}
+                  label={`Player 1 ${online.role === 'host' ? '(You)' : ''}`}
+                  score={online.publicState.p1.score}
+                  canDraw={canOnlineP1Draw}
+                  canStand={canOnlineP1Stand}
+                  isStandDisabled={isOnlineP1StandDisabled}
+                  actionLabel={onlineP1ActionLabel}
+                  keyboardHint={online.publicState.phase === 'player-turn' ? '1 / H' : '1'}
+                  standKeyboardHint="S"
+                  onDraw={onlineP1OnDraw}
+                  onStand={online.role === 'host' ? online.stand : undefined}
+                  statusBadge={onlineP1StatusBadge}
+                  outcome={onlineStationOutcomes.p1}
+                />
+
+                <PlayerPanel
+                  accent="second"
+                  seatLabel="Seat 02"
+                  cards={online.publicState.p2.cards}
+                  label={`Player 2 ${online.role === 'guest' ? '(You)' : ''}`}
+                  score={online.publicState.p2.score}
+                  canDraw={canOnlineP2Draw}
+                  canStand={canOnlineP2Stand}
+                  isStandDisabled={isOnlineP2StandDisabled}
+                  actionLabel={onlineP2ActionLabel}
+                  keyboardHint={online.publicState.phase === 'p2-turn' ? '2 / H' : '2'}
+                  standKeyboardHint="S"
+                  onDraw={onlineP2OnDraw}
+                  onStand={online.role === 'guest' ? online.stand : undefined}
+                  statusBadge={onlineP2StatusBadge}
+                  outcome={onlineStationOutcomes.p2}
+                />
+              </div>
+            </>
           )}
 
           <div className="sr-only" role="status" aria-live="polite">
             {statusMessage}
           </div>
         </div>
+      ) : (
+        <div className="table-surface">
+          <div className="table-top-bar">
+            {state.npcActive ? (
+              <div
+                className="scoreboard"
+                aria-label={`Score: Player 1 ${state.scoreboards.npc.p1}, Dealer ${state.scoreboards.npc.dealer}`}
+              >
+                <span className="scoreboard__label">Score</span>
+                <span
+                  className={`scoreboard__player ${scoreGains.p1 ? 'scoreboard__player--bump' : ''}`}
+                >
+                  P1
+                  <span className="scoreboard__value-wrap">
+                    <strong>{state.scoreboards.npc.p1}</strong>
+                    {scoreGains.p1 && <span className="score-pop-badge">+1</span>}
+                  </span>
+                </span>
+                <span className="scoreboard__divider" aria-hidden="true">
+                  —
+                </span>
+                <span
+                  className={`scoreboard__player ${scoreGains.dealer ? 'scoreboard__player--bump' : ''}`}
+                >
+                  Dealer
+                  <span className="scoreboard__value-wrap">
+                    <strong>{state.scoreboards.npc.dealer}</strong>
+                    {scoreGains.dealer && <span className="score-pop-badge">+1</span>}
+                  </span>
+                </span>
+              </div>
+            ) : (
+              <div
+                className="scoreboard"
+                aria-label={`Score: Player 1 ${state.scoreboards.local.p1}, Player 2 ${state.scoreboards.local.p2}, Dealer ${state.scoreboards.local.dealer}`}
+              >
+                <span className="scoreboard__label">Score</span>
+                <span
+                  className={`scoreboard__player ${scoreGains.p1 ? 'scoreboard__player--bump' : ''}`}
+                >
+                  P1
+                  <span className="scoreboard__value-wrap">
+                    <strong>{state.scoreboards.local.p1}</strong>
+                    {scoreGains.p1 && <span className="score-pop-badge">+1</span>}
+                  </span>
+                </span>
+                <span className="scoreboard__divider" aria-hidden="true">
+                  ·
+                </span>
+                <span
+                  className={`scoreboard__player ${scoreGains.p2 ? 'scoreboard__player--bump' : ''}`}
+                >
+                  P2
+                  <span className="scoreboard__value-wrap">
+                    <strong>{state.scoreboards.local.p2}</strong>
+                    {scoreGains.p2 && <span className="score-pop-badge">+1</span>}
+                  </span>
+                </span>
+                <span className="scoreboard__divider" aria-hidden="true">
+                  —
+                </span>
+                <span
+                  className={`scoreboard__player ${scoreGains.dealer ? 'scoreboard__player--bump' : ''}`}
+                >
+                  Dealer
+                  <span className="scoreboard__value-wrap">
+                    <strong>{state.scoreboards.local.dealer}</strong>
+                    {scoreGains.dealer && <span className="score-pop-badge">+1</span>}
+                  </span>
+                </span>
+              </div>
+            )}
 
-        <DealerStation
-          cards={state.dealer.cards}
-          score={state.dealer.score}
-          hiddenCardIndex={dealerHiddenIndex}
-          statusText={dealerStatusText}
-          isBotMode={state.npcActive}
-          outcome={stationOutcomes.dealer}
-        />
+            <div className="sr-only" role="status" aria-live="polite">
+              {statusMessage}
+            </div>
+          </div>
 
-        <div className="table-divider" aria-hidden="true" />
-
-        <div
-          className={`table-grid ${state.npcActive ? 'table-grid--single' : 'table-grid--two-players'}`}
-        >
-          <PlayerPanel
-            accent="first"
-            seatLabel="Seat 01"
-            cards={state.p1.cards}
-            label="Player 1"
-            score={state.p1.score}
-            canDraw={canP1Draw}
-            canStand={canP1Stand}
-            isStandDisabled={isP1StandDisabled}
-            actionLabel={actionLabel}
-            keyboardHint={state.phase === 'player-turn' ? '1 / H' : '1'}
-            standKeyboardHint="S"
-            onDraw={() => drawCard('p1')}
-            onStand={() => stand('p1')}
-            statusBadge={p1StatusBadge}
-            outcome={stationOutcomes.p1}
+          <DealerStation
+            cards={state.dealer.cards}
+            score={state.dealer.score}
+            hiddenCardIndex={dealerHiddenIndex}
+            statusText={dealerStatusText}
+            isBotMode={state.npcActive}
+            outcome={stationOutcomes.dealer}
           />
 
-          {!state.npcActive && (
+          <div className="table-divider" aria-hidden="true" />
+
+          <div
+            className={`table-grid ${state.npcActive ? 'table-grid--single' : 'table-grid--two-players'}`}
+          >
             <PlayerPanel
-              accent="second"
-              seatLabel="Seat 02"
-              cards={state.p2.cards}
-              label="Player 2"
-              score={state.p2.score}
-              canDraw={canP2Draw}
-              canStand={canP2Stand}
-              isStandDisabled={isP2StandDisabled}
+              accent="first"
+              seatLabel="Seat 01"
+              cards={state.p1.cards}
+              label="Player 1"
+              score={state.p1.score}
+              canDraw={canP1Draw}
+              canStand={canP1Stand}
+              isStandDisabled={isP1StandDisabled}
               actionLabel={actionLabel}
-              keyboardHint={state.phase === 'p2-turn' ? '2 / H' : '2'}
+              keyboardHint={state.phase === 'player-turn' ? '1 / H' : '1'}
               standKeyboardHint="S"
-              onDraw={() => drawCard('p2')}
-              onStand={() => stand('p2')}
-              statusBadge={p2StatusBadge}
-              outcome={stationOutcomes.p2}
+              onDraw={() => drawCard('p1')}
+              onStand={() => stand('p1')}
+              statusBadge={p1StatusBadge}
+              outcome={stationOutcomes.p1}
             />
-          )}
+
+            {!state.npcActive && (
+              <PlayerPanel
+                accent="second"
+                seatLabel="Seat 02"
+                cards={state.p2.cards}
+                label="Player 2"
+                score={state.p2.score}
+                canDraw={canP2Draw}
+                canStand={canP2Stand}
+                isStandDisabled={isP2StandDisabled}
+                actionLabel={actionLabel}
+                keyboardHint={state.phase === 'p2-turn' ? '2 / H' : '2'}
+                standKeyboardHint="S"
+                onDraw={() => drawCard('p2')}
+                onStand={() => stand('p2')}
+                statusBadge={p2StatusBadge}
+                outcome={stationOutcomes.p2}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <footer className="app-footer">
         <span>
-          {state.npcActive ? (
+          {activeMode === 'online' ? (
+            online.connectionState === 'connected' ? (
+              online.role === 'host' ? (
+                <>
+                  <kbd>1</kbd> or <kbd>H</kbd> Hit · <kbd>S</kbd> or <kbd>Space</kbd> Stand ·{' '}
+                  <kbd>Space</kbd> Deal
+                </>
+              ) : (
+                <>
+                  <kbd>2</kbd> or <kbd>H</kbd> Hit · <kbd>S</kbd> or <kbd>Space</kbd> Stand ·{' '}
+                  <kbd>Space</kbd> Ready/Rematch
+                </>
+              )
+            ) : (
+              <>Room {online.roomId || '—'} · WebRTC P2P DataChannel</>
+            )
+          ) : state.npcActive ? (
             <>
               <kbd>1</kbd> or <kbd>H</kbd> Hit · <kbd>S</kbd> or <kbd>Space</kbd> Stand ·{' '}
               <kbd>Space</kbd> Deal · <kbd>R</kbd> Reset

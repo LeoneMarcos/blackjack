@@ -54,11 +54,12 @@ The interface uses a continuous charcoal card table, ivory playing cards, restra
 
 ### Highlights
 
-- **Two game modes** — Play Player 1 vs Dealer in BOT mode or a sequential Player 1 → Player 2 → Dealer round in local Two Players mode.
-- **Mode-specific scoreboards** — Local and BOT victories are tracked independently.
+- **Three game modes** — Play Player 1 vs Dealer in BOT mode, sequential Player 1 → Player 2 → Dealer in local Two Players mode, or peer-to-peer multiplayer with host authority in Online P2P mode.
+- **Mode-specific scoreboards** — Local, BOT, and Online table victories are tracked independently.
 - **Responsive casino-style UI** — Neutral charcoal surfaces, ivory controls, animated cards, and responsive behavior.
 - **Classic Dealer flow** — The Dealer keeps the second card hidden until its turn, hits below 17, and stands on 17+.
-- **Clear game feedback** — Outcome badges and temporary feedback communicate wins, pushes, losses, and busts without blocking the table.
+- **P2P Multiplayer with Information Hiding** — Host acts as authoritative table master over WebRTC DataChannels. The Dealer hole card and undealt cards never leak to the guest.
+- **Clear game feedback** — Outcome badges and inline notifications communicate wins, pushes, losses, busts, and ready/rematch states without blocking the table.
 
 ---
 
@@ -79,23 +80,37 @@ The animated preview shows a short excerpt of bot play, local two-player mode, a
 - Classic Dealer hole-card flow with the second Dealer card hidden until the Dealer turn.
 - BOT mode for Player 1 vs Dealer.
 - Sequential local Two Players mode: Player 1 → Player 2 → Dealer.
+- **Online P2P mode**:
+  - WebRTC RTCDataChannel peer-to-peer gameplay with zero gameplay relay over the server.
+  - Short 4-character room codes for easy table sharing.
+  - Cloudflare Worker + Durable Object signaling layer with max 2 peers per room.
+  - Host authority: Host (Player 1) executes deck shuffling, card dealing, rule validation, dealer autoplay, and scoring.
+  - Guest validation: Guest (Player 2) sends only versioned, typed intentions (`hit`, `stand`, `ready`, `rematch`).
+  - Strict information hiding: Deck order, undealt cards, and the dealer's hidden hole card are never sent to the network before reveal.
+  - Full rematch synchronization and connection lifecycle handling (creating, waiting, connecting, connected, disconnected, retry).
 - Dealer autoplay that hits below 17 and stands on 17+.
 - Binary per-player scoring against the Dealer, with independent scoreboards by mode.
 - 30-second round timer with automatic round resolution.
 - Temporary win, push, loss, and bust notifications.
 - Game rules dialog with keyboard support through `Escape`.
-- Keyboard controls: `1` for Player 1, `2` for Player 2 when the BOT is off, and `R` to reset scores.
+- Keyboard controls: `1` for Player 1, `2` for Player 2, `H` to hit, `S` to stand, and `R` to reset scores.
 - Responsive layout with a Blackjack favicon and Lucide interface icons.
 
 ---
 
 ## Architecture
 
-The project is structured as a client-only single-page application built with React and TypeScript:
+The project is structured as a client-first application that connects to a standalone signaling service for Online P2P multiplayer:
 
-- **Presentation Layer (`src/App.tsx`)**: Controls visual hierarchy, header scoreboard, action triggers, rules dialog with keyboard trap/escape behavior, and accessible card labels.
-- **State Machine & Reducer (`src/hooks/useBlackjackGame.ts`)**: Manages BOT and Two Players modes, sequential player turns, Dealer autoplay and hole-card reveal, independent scoreboards, natural Blackjack completion, and timed round expiration.
-- **Domain Rules (`src/lib/deck.ts` and `src/lib/game-logic.ts`)**: Pure deck generation, card dealing, dynamic Ace valuation (1 or 11), and hand outcome comparison.
+- **Presentation Layer (`src/App.tsx`)**: Controls visual hierarchy, mode switching (BOT, Local, Online), lobby UX, scoreboard presentation, keyboard shortcuts, rules dialog, and round feedback.
+- **Domain Rules & Engine (`src/lib/game-logic.ts`, `src/lib/deck.ts`, `src/hooks/useBlackjackGame.ts`)**: Pure card dealing, dynamic Ace valuation (1 or 11), hand outcome comparison, and reducer-driven game loop.
+- **Online P2P Subsystem (`src/lib/online/`, `src/hooks/useOnlineBlackjack.ts`)**:
+  - `signaling.ts`: WebSocket client connecting to the signaling Worker to exchange WebRTC SDP and ICE candidates.
+  - `peer.ts`: Native `RTCPeerConnection` and `RTCDataChannel` manager for encrypted, low-latency peer communication.
+  - `authority.ts`: `HostAuthorityManager` running domain rules exclusively on the Host, gating deals behind mutual readiness, and verifying guest intentions.
+  - `serializer.ts`: Projects canonical game state into `PublicGameState`, replacing hidden cards with `{ label: '?', value: 0, isHidden: true }` and stripping undealt cards and RNG data.
+  - `types.ts`: Protocol definitions (`PROTOCOL_VERSION = 1`) and strict runtime validators.
+- **External Signaling Service ([`blackjack-signaling`](https://github.com/LeoneMarcos/blackjack-signaling))**: Standalone Cloudflare Worker + Durable Objects service responsible only for WebRTC signaling. This frontend repository contains no Worker runtime or deployment configuration.
 - **Styling (`src/index.css`)**: Dark casino theme tokens, responsive layouts, card tilt and deal animations, and mobile safe-area adaptations.
 
 ---
@@ -108,11 +123,11 @@ The project is structured as a client-only single-page application built with Re
 | Tooling | Vite 7 |
 | Styling | Tailwind CSS 4 |
 | Icons | Lucide React |
-| Typography | Google Fonts: Inter and Space Grotesk |
+| Networking | WebRTC (`RTCPeerConnection`, `RTCDataChannel`) |
+| Signaling | External `blackjack-signaling` Cloudflare Worker, Durable Objects, WebSockets |
 | Testing | Vitest 4, Playwright 1.63 |
 | Quality | ESLint 10, Prettier 3, TypeScript strict mode |
 | CI | GitHub Actions |
-| Validation | Production build validation with Vite |
 
 ---
 
@@ -135,13 +150,37 @@ cd blackjack
 npm ci
 ```
 
-### 3. Run locally
+### 3. Local Development (BOT & Local Two Players)
 
 ```bash
 npm run dev
 ```
 
-The application will be available at the local URL printed by Vite.
+### 4. Local Development (Online P2P)
+
+Configure the frontend to use a signaling endpoint:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+Set `VITE_SIGNALING_URL` in `.env.local` to the deployed signaling Worker URL. For fully local signaling development, run the standalone [`blackjack-signaling`](https://github.com/LeoneMarcos/blackjack-signaling) repository separately; its default Wrangler endpoint is `ws://127.0.0.1:8787`.
+
+Then start the frontend:
+
+```powershell
+npm run dev
+```
+
+Open two browser tabs or windows to test host creation and guest joining with room codes.
+
+---
+
+## Online P2P Trust Boundary & Limitations
+
+- **Trust Boundary**: The Host browser tab acts as the game server authority. Guest intentions (`hit`, `stand`, `ready`, `rematch`) are validated against game phase, turn, and schema. Malicious or malformed guest messages are rejected without affecting Host game state. Undealt deck order and the dealer's hole card remain strictly in Host memory and are never serialized onto the network before the Dealer's turn.
+- **NAT / Connectivity**: Uses standard Google STUN servers (`stun.l.google.com:19302`). Most home and office networks connect directly. Strict symmetric NATs without TURN may fail to establish a direct P2P connection.
+- **Production Signaling**: The signaling backend is deployed independently from the [`blackjack-signaling`](https://github.com/LeoneMarcos/blackjack-signaling) repository. Set `VITE_SIGNALING_URL=wss://blackjack-signaling.<your-subdomain>.workers.dev` in the frontend deployment environment.
 
 ---
 
@@ -158,7 +197,7 @@ npm run build
 npm run test:e2e
 ```
 
-The browser suite covers the critical BOT and sequential Two Players flows, including Dealer hole-card visibility and keyboard behavior. The finalized release passed 47 unit/component tests and 5 Playwright specs. To record the approved showcase flow locally, run `npm run showcase:prepare`; it starts Vite when needed, keeps the raw WebM, and produces a GitHub-compatible H.264 MP4. The **Publish Showcase** workflow performs the same capture in GitHub Actions and regenerates the canonical MP4, screenshots, and short README GIF preview when relevant product/showcase inputs change; it can also be run manually.
+The automated suite covers BOT, sequential local Two Players, and Online P2P, including Dealer hole-card visibility, keyboard safeguards, host authority, signaling validation, and a two-context WebRTC flow. The feature branch includes unit/integration coverage for the frontend online subsystem plus a two-context Playwright P2P flow. To record the approved showcase flow locally, run `npm run showcase:prepare`; it starts Vite when needed, keeps the raw WebM, and produces a GitHub-compatible H.264 MP4. The **Publish Showcase** workflow performs the same capture in GitHub Actions and regenerates the canonical MP4, screenshots, and short README GIF preview when relevant product/showcase inputs change; it can also be run manually.
 
 ---
 
