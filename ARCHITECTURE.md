@@ -21,8 +21,8 @@ flowchart TD
         Sig_Guest["SignalingClient"]
     end
 
-    subgraph Cloudflare["Signaling Layer (Cloudflare Workers)"]
-        Worker["worker/index.ts"]
+    subgraph Cloudflare["External Signaling Service"]
+        Worker["blackjack-signaling Worker"]
         DO["RoomDO (Durable Object per Room)"]
     end
 
@@ -82,16 +82,15 @@ The online multiplayer system is split into distinct architectural layers:
    - `HostMessage`: `{ type: 'sync_state', version: 1, state }` or `{ type: 'action_rejected', version: 1, reason }`.
    - Strict runtime typeguards reject malformed frames or payloads with unknown extra fields.
 
-6. **Signaling Worker (`worker/`)**:
-   - TypeScript Cloudflare Worker with one Durable Object (`RoomDO`) per room code.
-   - Validates room code format (3-8 uppercase alphanumeric characters).
-   - Enforces maximum 2 peers per room and validates create vs join intent.
-   - Validates signaling message schemas and role directions (only host can offer, only guest can answer).
-   - Disallows non-signaling / gameplay traffic over WebSockets.
+6. **External Signaling Service ([`blackjack-signaling`](https://github.com/LeoneMarcos/blackjack-signaling))**:
+   - Deployed independently as a Cloudflare Worker with one Durable Object (`RoomDO`) per room.
+   - Owns room allocation, peer limits, signaling schema validation, and offer/answer direction checks.
+   - Relays WebRTC negotiation only; Blackjack gameplay remains peer-to-peer over the DataChannel.
+   - No Worker source, Wrangler dependency, or Durable Object configuration lives in this frontend repository.
 
 ## Quality Boundary
 
-- Strict TypeScript compilation for both frontend and worker.
+- Strict TypeScript compilation for the frontend.
 - ESLint and Prettier style checks.
-- Vitest unit and integration suites covering domain rules, serializer information hiding, host authority, and worker signaling.
+- Vitest unit and integration suites covering domain rules, serializer information hiding, host authority, signaling-client protocol handling, and lifecycle behavior.
 - Playwright E2E testing covering local gameplay and a two-context WebRTC browser flow.
