@@ -100,7 +100,7 @@ The animated preview shows a short excerpt of bot play, local two-player mode, a
 
 ## Architecture
 
-The project is structured as a client-first application with an optional lightweight signaling worker for online multiplayer:
+The project is structured as a client-first application that connects to a standalone signaling service for Online P2P multiplayer:
 
 - **Presentation Layer (`src/App.tsx`)**: Controls visual hierarchy, mode switching (BOT, Local, Online), lobby UX, scoreboard presentation, keyboard shortcuts, rules dialog, and round feedback.
 - **Domain Rules & Engine (`src/lib/game-logic.ts`, `src/lib/deck.ts`, `src/hooks/useBlackjackGame.ts`)**: Pure card dealing, dynamic Ace valuation (1 or 11), hand outcome comparison, and reducer-driven game loop.
@@ -110,7 +110,7 @@ The project is structured as a client-first application with an optional lightwe
   - `authority.ts`: `HostAuthorityManager` running domain rules exclusively on the Host, gating deals behind mutual readiness, and verifying guest intentions.
   - `serializer.ts`: Projects canonical game state into `PublicGameState`, replacing hidden cards with `{ label: '?', value: 0, isHidden: true }` and stripping undealt cards and RNG data.
   - `types.ts`: Protocol definitions (`PROTOCOL_VERSION = 1`) and strict runtime validators.
-- **Signaling Worker (`worker/`)**: Cloudflare Worker + Durable Objects (`RoomDO`) routing signaling messages. Validates room codes, enforces 2-peer room limits, validates create/join intent, enforces SDP/candidate message schemas and role directions, and immediately drops non-signaling frames.
+- **External Signaling Service ([`blackjack-signaling`](https://github.com/LeoneMarcos/blackjack-signaling))**: Standalone Cloudflare Worker + Durable Objects service responsible only for WebRTC signaling. This frontend repository contains no Worker runtime or deployment configuration.
 - **Styling (`src/index.css`)**: Dark casino theme tokens, responsive layouts, card tilt and deal animations, and mobile safe-area adaptations.
 
 ---
@@ -124,8 +124,7 @@ The project is structured as a client-first application with an optional lightwe
 | Styling | Tailwind CSS 4 |
 | Icons | Lucide React |
 | Networking | WebRTC (`RTCPeerConnection`, `RTCDataChannel`) |
-| Signaling | Cloudflare Worker, Durable Objects, WebSockets |
-| Local Worker Dev | Wrangler 4 |
+| Signaling | External `blackjack-signaling` Cloudflare Worker, Durable Objects, WebSockets |
 | Testing | Vitest 4, Playwright 1.63 |
 | Quality | ESLint 10, Prettier 3, TypeScript strict mode |
 | CI | GitHub Actions |
@@ -157,20 +156,19 @@ npm ci
 npm run dev
 ```
 
-### 4. Local Development (Online P2P Mode with Worker Signaling)
+### 4. Local Development (Online P2P)
 
-Running Online P2P locally requires running both the signaling worker and the Vite frontend across two terminal windows on Windows (PowerShell):
+Configure the frontend to use a signaling endpoint:
 
-**Terminal 1 — Start the Signaling Worker:**
 ```powershell
-npm run worker:dev
-```
-*(Runs Wrangler dev at `ws://127.0.0.1:8787` without requiring Cloudflare credentials)*
-
-**Terminal 2 — Start the Frontend:**
-```powershell
-# Copy environment configuration if not already present
 Copy-Item .env.example .env.local
+```
+
+Set `VITE_SIGNALING_URL` in `.env.local` to the deployed signaling Worker URL. For fully local signaling development, run the standalone [`blackjack-signaling`](https://github.com/LeoneMarcos/blackjack-signaling) repository separately; its default Wrangler endpoint is `ws://127.0.0.1:8787`.
+
+Then start the frontend:
+
+```powershell
 npm run dev
 ```
 
@@ -182,10 +180,7 @@ Open two browser tabs or windows to test host creation and guest joining with ro
 
 - **Trust Boundary**: The Host browser tab acts as the game server authority. Guest intentions (`hit`, `stand`, `ready`, `rematch`) are validated against game phase, turn, and schema. Malicious or malformed guest messages are rejected without affecting Host game state. Undealt deck order and the dealer's hole card remain strictly in Host memory and are never serialized onto the network before the Dealer's turn.
 - **NAT / Connectivity**: Uses standard Google STUN servers (`stun.l.google.com:19302`). Most home and office networks connect directly. Strict symmetric NATs without TURN may fail to establish a direct P2P connection.
-- **Production Deployment**: To deploy signaling to Cloudflare Workers manually:
-  1. Authenticate with Cloudflare: `npx wrangler login`
-  2. Deploy the Worker: `npx wrangler deploy -c worker/wrangler.jsonc`
-  3. Set `VITE_SIGNALING_URL=wss://blackjack-signaling.<your-subdomain>.workers.dev` in your frontend deployment settings (e.g. Cloudflare Pages or Vercel).
+- **Production Signaling**: The signaling backend is deployed independently from the [`blackjack-signaling`](https://github.com/LeoneMarcos/blackjack-signaling) repository. Set `VITE_SIGNALING_URL=wss://blackjack-signaling.<your-subdomain>.workers.dev` in the frontend deployment environment.
 
 ---
 
@@ -202,7 +197,7 @@ npm run build
 npm run test:e2e
 ```
 
-The automated suite covers BOT, sequential local Two Players, and Online P2P, including Dealer hole-card visibility, keyboard safeguards, host authority, signaling validation, and a two-context WebRTC flow. This feature branch passes 69 unit/integration tests and 6 Playwright specs. To record the approved showcase flow locally, run `npm run showcase:prepare`; it starts Vite when needed, keeps the raw WebM, and produces a GitHub-compatible H.264 MP4. The **Publish Showcase** workflow performs the same capture in GitHub Actions and regenerates the canonical MP4, screenshots, and short README GIF preview when relevant product/showcase inputs change; it can also be run manually.
+The automated suite covers BOT, sequential local Two Players, and Online P2P, including Dealer hole-card visibility, keyboard safeguards, host authority, signaling validation, and a two-context WebRTC flow. The feature branch includes unit/integration coverage for the frontend online subsystem plus a two-context Playwright P2P flow. To record the approved showcase flow locally, run `npm run showcase:prepare`; it starts Vite when needed, keeps the raw WebM, and produces a GitHub-compatible H.264 MP4. The **Publish Showcase** workflow performs the same capture in GitHub Actions and regenerates the canonical MP4, screenshots, and short README GIF preview when relevant product/showcase inputs change; it can also be run manually.
 
 ---
 
