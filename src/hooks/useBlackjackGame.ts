@@ -40,7 +40,7 @@ export interface GameState {
   notice: RoundNotice | null;
 }
 
-type Action =
+export type Action =
   | { type: 'deal' }
   | { type: 'hit'; player?: PlayerId }
   | { type: 'stand'; player?: PlayerId }
@@ -50,7 +50,7 @@ type Action =
   | { type: 'reset-scores' }
   | { type: 'dismiss-notice' };
 
-function dealInitialRound(
+export function dealInitialRound(
   scoreboards: Scoreboards,
   npcActive: boolean,
   currentDeck?: Card[],
@@ -224,7 +224,7 @@ function dealInitialRound(
   };
 }
 
-function handleHit(state: GameState, player: PlayerId = 'p1'): GameState {
+export function handleHit(state: GameState, player: PlayerId = 'p1'): GameState {
   if (state.gameOver) return state;
 
   if (player === 'p1' && state.phase !== 'player-turn') return state;
@@ -337,7 +337,7 @@ function handleHit(state: GameState, player: PlayerId = 'p1'): GameState {
   return nextState;
 }
 
-function handleStand(state: GameState, player: PlayerId = 'p1'): GameState {
+export function handleStand(state: GameState, player: PlayerId = 'p1'): GameState {
   if (state.gameOver) return state;
 
   if (player === 'p1') {
@@ -382,7 +382,7 @@ function handleStand(state: GameState, player: PlayerId = 'p1'): GameState {
   return state;
 }
 
-function handleDealerStep(state: GameState): GameState {
+export function handleDealerStep(state: GameState): GameState {
   if (state.phase !== 'dealer-turn' || state.gameOver) return state;
 
   const dealerScore = state.dealer.score;
@@ -560,7 +560,7 @@ function handleDrawCompat(state: GameState, player: PlayerId): GameState {
   return handleHit(state, player);
 }
 
-function createIdleState(scoreboards: Scoreboards, npcActive: boolean): GameState {
+export function createIdleState(scoreboards: Scoreboards, npcActive: boolean): GameState {
   return {
     dealer: { cards: [], score: 0 },
     p1: { cards: [], score: 0 },
@@ -574,7 +574,7 @@ function createIdleState(scoreboards: Scoreboards, npcActive: boolean): GameStat
   };
 }
 
-function reducer(state: GameState, action: Action): GameState {
+export function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'deal':
       return dealInitialRound(state.scoreboards, state.npcActive, state.deck);

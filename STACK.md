@@ -80,15 +80,17 @@ Technical decisions should prioritize:
 
 | Layer          | Technology | Version | Purpose |
 | -------------- | ---------- | ------- | ------- |
-| Language       | TypeScript | `~5.9.3` declared; `5.9.3` installed | Typed application and game logic |
+| Language       | TypeScript | `~5.9.3` declared; `5.9.3` installed | Typed application, game logic, and worker |
 | Frontend       | React | `19.2.8` declared and installed | Browser UI |
 | Styling        | Tailwind CSS plus project CSS | `4.3.3` declared and installed | Utility integration and design tokens/components |
-| Backend        | None | N/A | Client-only application |
-| Database       | None | N/A | No persistent game data |
+| Networking     | WebRTC `RTCPeerConnection` & `RTCDataChannel` | Native Web APIs | Encrypted peer-to-peer gameplay transport |
+| Signaling      | Cloudflare Worker + Durable Objects (`RoomDO`) | Wrangler `^4.131.1` | Ephemeral WebSocket signaling relay (max 2 peers) |
+| Backend        | None for gameplay; ephemeral signaling worker only | Cloudflare Workers runtime | Route SDP offer/answer & ICE candidates |
+| Database       | None | N/A | No persistent game data; in-memory room DO |
 | Authentication | None | N/A | No accounts or protected resources |
 | Validation     | TypeScript compiler and game tests | TypeScript `5.9.3`, Vitest `4.1.0` installed | Compile-time and behavior validation |
 | Testing        | Vitest; Playwright for E2E browser validation | Vitest `4.1.0`, Playwright `1.63.0` | Unit tests and end-to-end browser checks |
-| Hosting        | Static web host; provider not declared in repository | N/A | Serve Vite build output |
+| Hosting        | Static web host for Vite SPA; Cloudflare Worker for signaling | N/A | Serve Vite build output and signaling endpoint |
 | CI/CD          | GitHub Actions | Actions `checkout@v4`, `setup-node@v4` | Automated quality gates |
 | Monitoring     | None declared | N/A | No runtime monitoring integration |
 
@@ -215,34 +217,54 @@ Do not introduce an additional programming language for application logic withou
 
 # 8. Backend
 
-**Backend required:** No
+**Backend required:** Ephemeral signaling service only for Online P2P multiplayer. All gameplay remains client-to-client P2P.
 
-**Backend strategy:** Client-only static application.
+**Backend strategy:** Cloudflare Worker with one Durable Object per room (`RoomDO`) for WebRTC signaling exchange, plus native browser `RTCPeerConnection` and `RTCDataChannel` for direct peer-to-peer gameplay.
 
 ## Runtime
 
-**Technology:** None at runtime. Node.js is used only by project tooling.
+**Technology:** Cloudflare Workers runtime (V8 isolates) and Durable Objects for signaling; native browser WebRTC for gameplay.
 
-## Framework
+## Framework / Service
 
-**Framework:** None
+**Service:** Cloudflare Worker (`worker/index.ts`, `worker/room-do.ts`) configured via `worker/wrangler.jsonc`.
 
-## API Style
+## API Style & Endpoints
 
-**Primary:** None
+**Signaling Endpoints:**
+- `GET /health`: Health check returning `{ status: "ok", service: "blackjack-signaling" }`.
+- `GET /room/:roomId/ws?intent=create|join`: WebSocket upgrade endpoint routed to `RoomDO`.
 
-## API Contract
+**Transport:**
+- Signaling: WebSockets (ephemeral; drops connection after negotiation or upon disconnect).
+- Gameplay: Native WebRTC `RTCDataChannel` (`blackjack-game`, ordered, reliable).
 
-**Validation:** Not applicable; there is no API boundary.
+## API Contract & Validation
 
-**Serialization:** Not applicable; game state is in memory.
+**Signaling Contract:**
+- Formats: JSON WebSocket messages.
+- Role Assignment: First peer (with `intent=create`) receives `assigned_role: host`. Second peer (with `intent=join`) receives `assigned_role: guest`.
+- Room Capacity: Maximum 2 peers per room. Excess peers receive `room_full` (4001) and are rejected.
+- Intent Protection: Guests joining non-existent rooms receive `invalid_room` (4004) and are rejected; hosts creating rooms with existing hosts receive `room_full` (4009) and are rejected.
+- Signal Validation: Worker strictly checks SDP offer (host-only), SDP answer (guest-only), and ICE candidate shapes; non-signaling frames are blocked.
 
-**Versioning strategy:** Not applicable.
+**Gameplay Protocol (`PROTOCOL_VERSION = 1`):**
+- Host Messages: `{ type: 'sync_state', version: 1, state: PublicGameState }` and `{ type: 'action_rejected', version: 1, reason: string }`.
+- Guest Intent Messages: `{ type: 'guest_intent', version: 1, action: 'hit' | 'stand' | 'ready' | 'rematch', value?: boolean }`.
+- Information Hiding: `serializeCanonicalToPublic` projects state such that the Dealer hole card is masked (`{ label: '?', value: 0, isHidden: true }`) until reveal; undealt deck cards and internal RNG metadata are never serialized.
+
+## Deployment & Configuration
+
+- **Local Dev:** `npm run worker:dev` runs `wrangler dev -c worker/wrangler.jsonc` at `ws://127.0.0.1:8787`.
+- **Frontend Config:** `VITE_SIGNALING_URL` configured in `.env.example`.
+- **Production Deployment:** Manual deployment using `npx wrangler deploy -c worker/wrangler.jsonc` after authenticating with Cloudflare credentials.
 
 ## Rules
 
-* Do not add a backend unless a concrete requirement such as accounts, persistence, multiplayer, or trusted server logic appears.
-* If a backend is introduced, document the runtime, API contract, trust boundaries, deployment, secrets, and validation before implementation.
+* Never relay gameplay state through the signaling worker; gameplay must strictly use WebRTC DataChannels.
+* Never expose undealt deck cards, internal RNG seeds, or hidden hole card values across the network.
+* Do not store persistent database records or credentials in the worker.
+* Maintain strict schema validation for all network inputs.
 
 ---
 

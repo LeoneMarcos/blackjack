@@ -16,13 +16,16 @@
     "showcase:convert": "node showcase-assets/convert-showcase.mjs",
     "showcase:prepare": "npm run showcase:capture && npm run showcase:convert",
     "build": "tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json --noEmit",
+    "typecheck:worker": "tsc -p worker/tsconfig.json --noEmit",
+    "worker:dev": "wrangler dev -c worker/wrangler.jsonc",
     "lint": "eslint .",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"vite.config.ts\" \"playwright.config.ts\" \"eslint.config.js\" \"package.json\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"vite.config.ts\" \"playwright.config.ts\" \"eslint.config.js\" \"package.json\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"worker/**/*.ts\" \"vite.config.ts\" \"playwright.config.ts\" \"eslint.config.js\" \"package.json\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"worker/**/*.ts\" \"vite.config.ts\" \"playwright.config.ts\" \"eslint.config.js\" \"package.json\"",
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260911.1",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "4.3.3",
@@ -43,7 +46,8 @@
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0",
     "vite": "7.2.4",
-    "vitest": "4.1.0"
+    "vitest": "4.1.0",
+    "wrangler": "^4.131.1"
   },
   "dependencies": {
     "lucide-react": "1.39.0",
