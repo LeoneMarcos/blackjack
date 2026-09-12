@@ -43,26 +43,41 @@ export function parseServerSignalingMessage(value: unknown): ServerSignalingMess
   }
 }
 
-export function getSignalingUrl(roomId: string, intent?: 'create' | 'join'): string {
-  const envUrl = (import.meta as unknown as { env?: { VITE_SIGNALING_URL?: string } }).env
-    ?.VITE_SIGNALING_URL;
+export function normalizeSignalingBaseUrl(value: string): string {
+  let normalized = value.trim();
 
-  let base = envUrl && envUrl.trim() !== '' ? envUrl.trim() : 'ws://127.0.0.1:8787';
-
-  // Ensure base has ws:// or wss:// protocol
-  if (!base.startsWith('ws://') && !base.startsWith('wss://')) {
-    if (base.startsWith('http://')) {
-      base = base.replace('http://', 'ws://');
-    } else if (base.startsWith('https://')) {
-      base = base.replace('https://', 'wss://');
-    } else {
-      base = `ws://${base}`;
-    }
+  if (normalized.startsWith('https://')) {
+    normalized = `wss://${normalized.slice('https://'.length)}`;
+  } else if (normalized.startsWith('http://')) {
+    normalized = `ws://${normalized.slice('http://'.length)}`;
   }
 
-  // Strip trailing slash
-  base = base.replace(/\/+$/, '');
+  const parsed = new URL(normalized);
+  if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
+    throw new Error('Signaling URL must use ws://, wss://, http://, or https://.');
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error('Signaling URL must not contain embedded credentials.');
+  }
 
+  parsed.search = '';
+  parsed.hash = '';
+  return parsed.toString().replace(/\/+$/, '');
+}
+
+export function getSignalingUrl(roomId: string, intent?: 'create' | 'join'): string {
+  const env = (
+    import.meta as unknown as {
+      env?: { VITE_SIGNALING_URL?: string; DEV?: boolean };
+    }
+  ).env;
+
+  const configuredUrl = env?.VITE_SIGNALING_URL?.trim();
+  if (!configuredUrl && !env?.DEV) {
+    throw new Error('VITE_SIGNALING_URL is required for Online P2P in production.');
+  }
+
+  const base = normalizeSignalingBaseUrl(configuredUrl || 'ws://127.0.0.1:8787');
   const intentQuery = intent ? `?intent=${encodeURIComponent(intent)}` : '';
   return `${base}/room/${encodeURIComponent(roomId.toUpperCase())}/ws${intentQuery}`;
 }
