@@ -13,6 +13,7 @@ import {
   Globe,
   Hand,
   LogOut,
+  Plus,
   RotateCcw,
   Users,
   X,
@@ -45,7 +46,7 @@ function formatScore(
 }
 
 function getHandStatus(score: number, cardCount: number): string {
-  if (score > 21) return 'Busted hand';
+  if (score > 21) return '';
   if (score === 21 && cardCount === 2) return 'Blackjack!';
   if (score === 21) return '21 points';
   return `${cardCount} ${cardCount === 1 ? 'card' : 'cards'}`;
@@ -360,10 +361,11 @@ function PlayerPanel({
           : isBust
             ? 'player-panel--bust'
             : '';
+  const outcomeStateClass = outcome !== 'none' ? 'player-panel--has-outcome' : '';
 
   return (
     <section
-      className={`player-panel player-panel--${accent} ${outcomeClass}`}
+      className={`player-panel player-panel--${accent} ${outcomeClass} ${outcomeStateClass}`}
       aria-labelledby={`${accent}-player-title`}
     >
       <div className="player-panel__heading">
@@ -389,7 +391,7 @@ function PlayerPanel({
           </div>
         </div>
       </div>
-      <span className="hand-status">{status}</span>
+      {status && <span className="hand-status">{status}</span>}
       {cards.length > 0 ? (
         <ol className="cards" aria-label={`${label} cards`}>
           {cards.map((card, index) => {
@@ -969,7 +971,7 @@ function App() {
                     className="button button--primary"
                     onClick={() => online.createRoom()}
                   >
-                    <Hand aria-hidden="true" />
+                    <Plus aria-hidden="true" />
                     <span>Create Room</span>
                   </button>
                 </div>
@@ -987,6 +989,8 @@ function App() {
                       value={joinCode}
                       onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                       aria-label="Room code"
+                      enterKeyHint="go"
+                      autoCapitalize="characters"
                     />
                     <button
                       type="button"
@@ -1078,7 +1082,7 @@ function App() {
             <>
               <div className="online-top-bar">
                 <div
-                  className="scoreboard"
+                  className="scoreboard scoreboard--three-up"
                   aria-label={`Score: Player 1 ${online.publicState.scoreboards.local.p1}, Player 2 ${online.publicState.scoreboards.local.p2}, Dealer ${online.publicState.scoreboards.local.dealer}`}
                 >
                   <span className="scoreboard__label">Score</span>
@@ -1192,7 +1196,7 @@ function App() {
           <div className="table-top-bar">
             {state.npcActive ? (
               <div
-                className="scoreboard"
+                className="scoreboard scoreboard--two-up"
                 aria-label={`Score: Player 1 ${state.scoreboards.npc.p1}, Dealer ${state.scoreboards.npc.dealer}`}
               >
                 <span className="scoreboard__label">Score</span>
@@ -1220,7 +1224,7 @@ function App() {
               </div>
             ) : (
               <div
-                className="scoreboard"
+                className="scoreboard scoreboard--three-up"
                 aria-label={`Score: Player 1 ${state.scoreboards.local.p1}, Player 2 ${state.scoreboards.local.p2}, Dealer ${state.scoreboards.local.dealer}`}
               >
                 <span className="scoreboard__label">Score</span>
@@ -1321,7 +1325,13 @@ function App() {
       )}
 
       <footer className="app-footer">
-        <span>
+        <span
+          className={
+            activeMode === 'online' && online.connectionState !== 'connected'
+              ? undefined
+              : 'keyboard-shortcuts'
+          }
+        >
           {activeMode === 'online' ? (
             online.connectionState === 'connected' ? (
               online.role === 'host' ? (
