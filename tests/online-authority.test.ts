@@ -20,6 +20,16 @@ describe('HostAuthorityManager & negative authority validation', () => {
   });
 
   it('gates hostDeal on both players being ready', () => {
+    const deterministicDeck: Card[] = [
+      { label: '8', value: 8, name: 'Dealer hole', symbol: '♦', color: 'red' },
+      { label: '9', value: 9, name: 'Dealer upcard', symbol: '♠', color: 'black' },
+      { label: '7', value: 7, name: 'P2 second', symbol: '♥', color: 'red' },
+      { label: '8', value: 8, name: 'P2 first', symbol: '♣', color: 'black' },
+      { label: '7', value: 7, name: 'P1 second', symbol: '♦', color: 'red' },
+      { label: '8', value: 8, name: 'P1 first', symbol: '♠', color: 'black' },
+    ];
+    vi.spyOn(deckModule, 'createDeck').mockReturnValue(deterministicDeck);
+
     let lastRejectionReason = '';
     const host = new HostAuthorityManager(
       () => {},
