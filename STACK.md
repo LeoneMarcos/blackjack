@@ -49,7 +49,7 @@ The system must support:
 * Keyboard-accessible controls and responsive behavior.
 * Repeatable local quality checks and production builds.
 
-The system does not currently require authentication, persistent user data, payments, real-time networking, file uploads, server-side processing, or AI integration.
+The system does not require authentication, persistent user data, payments, file uploads, application-owned server processing, or AI integration. Online P2P mode does require real-time networking through WebRTC plus an external signaling service.
 
 ---
 
@@ -70,7 +70,7 @@ Technical decisions should prioritize:
 
 ## Project-specific principles
 
-* The game must work without an account or network API.
+* BOT and local Two Players modes must work without an account or backend API; Online P2P may depend on the external signaling service.
 * Domain rules belong in pure TypeScript functions that can be tested independently.
 * UI state belongs in the React hook and must not require a global state library.
 
@@ -80,17 +80,17 @@ Technical decisions should prioritize:
 
 | Layer          | Technology | Version | Purpose |
 | -------------- | ---------- | ------- | ------- |
-| Language       | TypeScript | `~5.9.3` declared; `5.9.3` installed | Typed application, game logic, and worker |
+| Language       | TypeScript | `~5.9.3` declared; `5.9.3` installed | Typed frontend application and game logic |
 | Frontend       | React | `19.2.8` declared and installed | Browser UI |
 | Styling        | Tailwind CSS plus project CSS | `4.3.3` declared and installed | Utility integration and design tokens/components |
 | Networking     | WebRTC `RTCPeerConnection` & `RTCDataChannel` | Native Web APIs | Encrypted peer-to-peer gameplay transport |
-| Signaling      | Cloudflare Worker + Durable Objects (`RoomDO`) | Wrangler `^4.131.1` | Ephemeral WebSocket signaling relay (max 2 peers) |
-| Backend        | None for gameplay; ephemeral signaling worker only | Cloudflare Workers runtime | Route SDP offer/answer & ICE candidates |
-| Database       | None | N/A | No persistent game data; in-memory room DO |
+| Signaling      | External `blackjack-signaling` service (Cloudflare Worker + Durable Objects) | External service | Ephemeral WebSocket signaling for WebRTC negotiation |
+| Backend        | None in this repository; standalone signaling service only | External Cloudflare Workers runtime | Route SDP offer/answer & ICE candidates outside the frontend repo |
+| Database       | None in frontend | N/A | No persistent Blackjack data |
 | Authentication | None | N/A | No accounts or protected resources |
 | Validation     | TypeScript compiler and game tests | TypeScript `5.9.3`, Vitest `4.1.0` installed | Compile-time and behavior validation |
 | Testing        | Vitest; Playwright for E2E browser validation | Vitest `4.1.0`, Playwright `1.63.0` | Unit tests and end-to-end browser checks |
-| Hosting        | Static web host for Vite SPA; Cloudflare Worker for signaling | N/A | Serve Vite build output and signaling endpoint |
+| Hosting        | Static web host for Vite SPA; external signaling Worker deployed separately | N/A | Serve frontend and signaling as independent deployments |
 | CI/CD          | GitHub Actions | Actions `checkout@v4`, `setup-node@v4` | Automated quality gates |
 | Monitoring     | None declared | N/A | No runtime monitoring integration |
 
@@ -217,54 +217,39 @@ Do not introduce an additional programming language for application logic withou
 
 # 8. Backend
 
-**Backend required:** Ephemeral signaling service only for Online P2P multiplayer. All gameplay remains client-to-client P2P.
-
-**Backend strategy:** Cloudflare Worker with one Durable Object per room (`RoomDO`) for WebRTC signaling exchange, plus native browser `RTCPeerConnection` and `RTCDataChannel` for direct peer-to-peer gameplay.
+**Backend required:** No application backend lives in this repository. Online P2P uses the standalone [`blackjack-signaling`](https://github.com/LeoneMarcos/blackjack-signaling) service only for WebRTC negotiation; Blackjack gameplay remains browser-to-browser.
 
 ## Runtime
 
-**Technology:** Cloudflare Workers runtime (V8 isolates) and Durable Objects for signaling; native browser WebRTC for gameplay.
+**Frontend runtime:** Browser.
 
-## Framework / Service
+**External signaling runtime:** Cloudflare Workers + Durable Objects, maintained and deployed from the separate `blackjack-signaling` repository.
 
-**Service:** Cloudflare Worker (`worker/index.ts`, `worker/room-do.ts`) configured via `worker/wrangler.jsonc`.
+## Integration Contract
 
-## API Style & Endpoints
-
-**Signaling Endpoints:**
-- `GET /health`: Health check returning `{ status: "ok", service: "blackjack-signaling" }`.
-- `GET /room/:roomId/ws?intent=create|join`: WebSocket upgrade endpoint routed to `RoomDO`.
+**Frontend endpoint configuration:** `VITE_SIGNALING_URL` points to the WebSocket signaling service.
 
 **Transport:**
-- Signaling: WebSockets (ephemeral; drops connection after negotiation or upon disconnect).
+- Signaling: WebSockets to the external service for SDP offers, answers, and ICE candidates.
 - Gameplay: Native WebRTC `RTCDataChannel` (`blackjack-game`, ordered, reliable).
-
-## API Contract & Validation
-
-**Signaling Contract:**
-- Formats: JSON WebSocket messages.
-- Role Assignment: First peer (with `intent=create`) receives `assigned_role: host`. Second peer (with `intent=join`) receives `assigned_role: guest`.
-- Room Capacity: Maximum 2 peers per room. Excess peers receive `room_full` (4001) and are rejected.
-- Intent Protection: Guests joining non-existent rooms receive `invalid_room` (4004) and are rejected; hosts creating rooms with existing hosts receive `room_full` (4009) and are rejected.
-- Signal Validation: Worker strictly checks SDP offer (host-only), SDP answer (guest-only), and ICE candidate shapes; non-signaling frames are blocked.
 
 **Gameplay Protocol (`PROTOCOL_VERSION = 1`):**
 - Host Messages: `{ type: 'sync_state', version: 1, state: PublicGameState }` and `{ type: 'action_rejected', version: 1, reason: string }`.
 - Guest Intent Messages: `{ type: 'guest_intent', version: 1, action: 'hit' | 'stand' | 'ready' | 'rematch', value?: boolean }`.
-- Information Hiding: `serializeCanonicalToPublic` projects state such that the Dealer hole card is masked (`{ label: '?', value: 0, isHidden: true }`) until reveal; undealt deck cards and internal RNG metadata are never serialized.
+- Information Hiding: `serializeCanonicalToPublic` masks the Dealer hole card until reveal and never serializes undealt deck cards or internal RNG metadata.
 
 ## Deployment & Configuration
 
-- **Local Dev:** `npm run worker:dev` runs `wrangler dev -c worker/wrangler.jsonc` at `ws://127.0.0.1:8787`.
-- **Frontend Config:** `VITE_SIGNALING_URL` configured in `.env.example`.
-- **Production Deployment:** Manual deployment using `npx wrangler deploy -c worker/wrangler.jsonc` after authenticating with Cloudflare credentials.
+- **Frontend Config:** `VITE_SIGNALING_URL` is documented in `.env.example`.
+- **Local Signaling:** For fully local P2P development, run the standalone `blackjack-signaling` repository separately at its Wrangler endpoint.
+- **Production Signaling:** Deploy and maintain the signaling Worker independently from the frontend repository.
 
 ## Rules
 
-* Never relay gameplay state through the signaling worker; gameplay must strictly use WebRTC DataChannels.
-* Never expose undealt deck cards, internal RNG seeds, or hidden hole card values across the network.
-* Do not store persistent database records or credentials in the worker.
-* Maintain strict schema validation for all network inputs.
+* Do not add Wrangler, Durable Object source, or Worker deployment configuration to this frontend repository.
+* Never relay gameplay state through the signaling service; gameplay must use WebRTC DataChannels.
+* Never expose undealt deck cards, internal RNG seeds, or hidden hole-card values across the network.
+* Keep the frontend protocol compatible with the standalone signaling service.
 
 ---
 
@@ -371,47 +356,47 @@ Every future external service must have a documented purpose, data flow, failure
 
 ## Frontend Hosting
 
-**Provider:** A static web host is required, but the provider is not declared in the repository. The documented production URL is `https://blackjack.leonemarcos.com/`.
+**Provider:** External static hosting for the Vite SPA. The documented production URL is `https://blackjack.leonemarcos.com/`.
 
 ## Backend Hosting
 
-**Provider:** None
+**Provider:** The standalone `blackjack-signaling` service is deployed independently on Cloudflare Workers.
+
+**Repository:** `https://github.com/LeoneMarcos/blackjack-signaling`
 
 ## Database Hosting
 
-**Provider:** None
+**Provider:** None for Blackjack application data.
 
 ## DNS
 
-**Provider:** Not declared in the repository. The production hostname is documented but its DNS provider is not verifiable from local project files.
+**Provider:** Not declared in this repository.
 
 ## Environments
 
 Supported environments:
 
-* Local development through Vite.
-* Production static build through `npm run build` and the externally configured host.
-
-Preview/staging deployment is not declared in the repository.
-
-Avoid adding a backend, container, or staging environment without a concrete deployment requirement.
+* Local frontend development through Vite.
+* Production frontend build through `npm run build`.
+* Optional local signaling by running the standalone signaling repository separately.
+* Production Online P2P using the independently deployed signaling Worker.
 
 ---
 
 # 15. Environment Variables
 
-No environment variables are currently referenced by source code, configuration, CI, or documentation.
-
 | Variable | Required | Scope | Secret | Purpose |
 | -------- | -------- | ----- | ------ | ------- |
-| None | No | N/A | N/A | The application has no environment-specific runtime configuration. |
+| `VITE_SIGNALING_URL` | Required for deployed Online P2P | Frontend build/runtime configuration | No | WebSocket URL of the standalone signaling service |
+
+Local development may use the default `ws://127.0.0.1:8787` when the standalone signaling service is running locally.
 
 ## Rules
 
-* If environment variables are introduced, document them here and add/update `.env.example`.
+* Keep `.env.example` synchronized with frontend configuration.
 * Never commit production secrets.
+* `VITE_SIGNALING_URL` is public client configuration, not a credential.
 * Clearly distinguish public client configuration from server-only secrets.
-* Do not create an `.env` file for values that can remain static and non-sensitive.
 
 ---
 
@@ -422,10 +407,12 @@ No environment variables are currently referenced by source code, configuration,
 Important trust boundaries:
 
 * Browser → static host: the browser receives public HTML, JavaScript, CSS, and assets.
+* Browser → signaling service: WebSocket traffic is limited to WebRTC negotiation and peer lifecycle messages.
+* Host browser → Guest browser: gameplay state and guest intentions travel over the WebRTC DataChannel.
+* Host authority: canonical deck order, hidden Dealer information, validation, scoring, and turn progression remain authoritative on the Host.
 * Browser → Google Fonts: the browser may request the configured font stylesheet from the external provider.
-* Game state: all round state is local and is not treated as trusted server data.
 
-There is no API, database, authentication, upload, webhook, or privileged server boundary.
+There is no authentication, persistent application database, upload, payment, or privileged account boundary.
 
 ## Required Controls
 
@@ -793,9 +780,9 @@ Audit performed on 2026-09-04 against the repository, package manifests, source,
 
 ## Backend
 
-* [x] No backend exists because it is not required.
-* [x] No undocumented API architecture exists.
-* [x] No sensitive operation is incorrectly placed in a server layer.
+* [x] No backend runtime or Worker implementation is stored in this frontend repository.
+* [x] Online P2P signaling is delegated to the documented standalone `blackjack-signaling` service.
+* [x] Gameplay authority remains in the Host browser rather than the signaling service.
 
 ## Data
 
@@ -806,8 +793,8 @@ Audit performed on 2026-09-04 against the repository, package manifests, source,
 ## Security
 
 * [x] No secrets are committed or referenced.
-* [x] No environment variables are required by the current source.
-* [x] No API trust boundary exists; game logic remains local.
+* [x] `VITE_SIGNALING_URL` is documented as public client configuration.
+* [x] The signaling boundary and Host-authority model are documented.
 * [x] No authorization claim is made by the client.
 
 ## Testing
@@ -823,7 +810,7 @@ Audit performed on 2026-09-04 against the repository, package manifests, source,
 * [ ] Hosting provider is explicitly documented.
 * [x] CI validation flow matches the specification.
 * [x] CI checks include strict npm ci, audit, format, lint, typecheck, unit tests, build, Playwright Chromium install, and test:e2e.
-* [x] No environment variables require deployment documentation.
+* [x] `VITE_SIGNALING_URL` deployment configuration is documented.
 
 ## Architecture
 
