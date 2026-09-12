@@ -11,10 +11,10 @@
       }
     ]
   },
-  "migrations": [
-    {
-      "tag": "v1",
-      "new_classes": ["RoomDO"]
+  "exports": {
+    "RoomDO": {
+      "type": "durable-object",
+      "storage": "sqlite"
     }
-  ]
+  }
 }
