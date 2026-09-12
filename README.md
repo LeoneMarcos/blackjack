@@ -82,7 +82,7 @@ The animated preview shows a short excerpt of bot play, local two-player mode, a
 - Dealer autoplay that hits below 17 and stands on 17+.
 - Binary per-player scoring against the Dealer, with independent scoreboards by mode.
 - 30-second round timer with automatic round resolution.
-- Temporary win, tie, and bust notifications.
+- Temporary win, push, loss, and bust notifications.
 - Game rules dialog with keyboard support through `Escape`.
 - Keyboard controls: `1` for Player 1, `2` for Player 2 when the BOT is off, and `R` to reset scores.
 - Responsive layout with a Blackjack favicon and Lucide interface icons.
@@ -169,7 +169,7 @@ The browser suite covers the critical BOT and sequential Two Players flows, incl
 - [`PRODUCT.md`](PRODUCT.md) — Core game rules and product requirements.
 - [`STACK.md`](STACK.md) — Technical stack constraints and tooling specifications.
 - [`TEST_PLAN.md`](TEST_PLAN.md) — Test plan and validation strategy.
-- [`docs/STATUS.md`](docs/STATUS.md) — Status log of checks, evidence, and pending items.
+- [`docs/STATUS.md`](docs/STATUS.md) — Final release status and validation evidence.
 
 ---
 
