@@ -5,7 +5,7 @@
 <h1 align="center">Blackjack</h1>
 
 <p align="center">
-  A polished, browser-based 21 card game with local multiplayer and an optional automated opponent.
+  A polished, browser-based Blackjack game with solo and sequential local multiplayer against a classic automated Dealer.
 </p>
 
 <p align="center">
@@ -48,16 +48,17 @@
 
 ## Overview
 
-**Blackjack** is a lightweight 21 card game designed around a focused casino-style interface. Players can compete locally in a two-player mode or enable the BOT for an automated opponent, with the active game mode tracked through its own scoreboard.
+**Blackjack** is a lightweight card game designed around a focused casino-style interface. In BOT mode, Player 1 plays against the Dealer. In Two Players mode, Player 1 completes their hand first, Player 2 plays second, and the Dealer resolves the round last. Each mode keeps its own scoreboard.
 
 The interface uses a continuous charcoal card table, ivory playing cards, restrained typography, Lucide icons, responsive layouts, and inline round feedback that keeps the game visible.
 
 ### Highlights
 
-- **Two game modes** — Switch between local Player 1 vs Player 2 and Player 1 vs BOT matches.
+- **Two game modes** — Play Player 1 vs Dealer in BOT mode or a sequential Player 1 → Player 2 → Dealer round in local Two Players mode.
 - **Mode-specific scoreboards** — Local and BOT victories are tracked independently.
 - **Responsive casino-style UI** — Neutral charcoal surfaces, ivory controls, animated cards, and responsive behavior.
-- **Clear game feedback** — A subtle, temporary notification communicates wins, ties, and busts without blocking the table.
+- **Classic Dealer flow** — The Dealer keeps the second card hidden until its turn, hits below 17, and stands on 17+.
+- **Clear game feedback** — Outcome badges and temporary feedback communicate wins, pushes, losses, and busts without blocking the table.
 
 ---
 
@@ -75,9 +76,11 @@ The animated preview shows a short excerpt of bot play, local two-player mode, a
 
 - Full 52-card deck with suits, face cards, and shuffled dealing.
 - 21-point scoring with flexible Ace values of 1 or 11.
-- Local two-player mode with separate card controls.
-- Optional BOT opponent with score-aware decision logic.
-- Independent scoreboards for Player 2 and BOT matches.
+- Classic Dealer hole-card flow with the second Dealer card hidden until the Dealer turn.
+- BOT mode for Player 1 vs Dealer.
+- Sequential local Two Players mode: Player 1 → Player 2 → Dealer.
+- Dealer autoplay that hits below 17 and stands on 17+.
+- Binary per-player scoring against the Dealer, with independent scoreboards by mode.
 - 30-second round timer with automatic round resolution.
 - Temporary win, tie, and bust notifications.
 - Game rules dialog with keyboard support through `Escape`.
@@ -91,7 +94,7 @@ The animated preview shows a short excerpt of bot play, local two-player mode, a
 The project is structured as a client-only single-page application built with React and TypeScript:
 
 - **Presentation Layer (`src/App.tsx`)**: Controls visual hierarchy, header scoreboard, action triggers, rules dialog with keyboard trap/escape behavior, and accessible card labels.
-- **State Machine & Reducer (`src/hooks/useBlackjackGame.ts`)**: Manages the game loop, active game mode (BOT vs Two-Player), turn states, independent scoreboards, and timed round expiration.
+- **State Machine & Reducer (`src/hooks/useBlackjackGame.ts`)**: Manages BOT and Two Players modes, sequential player turns, Dealer autoplay and hole-card reveal, independent scoreboards, natural Blackjack completion, and timed round expiration.
 - **Domain Rules (`src/lib/deck.ts` and `src/lib/game-logic.ts`)**: Pure deck generation, card dealing, dynamic Ace valuation (1 or 11), and hand outcome comparison.
 - **Styling (`src/index.css`)**: Dark casino theme tokens, responsive layouts, card tilt and deal animations, and mobile safe-area adaptations.
 
@@ -155,7 +158,7 @@ npm run build
 npm run test:e2e
 ```
 
-The browser suite runs the critical BOT and local-player flows. To record the approved showcase flow locally, run `npm run showcase:prepare`; it starts Vite when needed, keeps the raw WebM, and produces a GitHub-compatible H.264 MP4. The **Publish Showcase** workflow performs the same capture in GitHub Actions and regenerates the canonical MP4, screenshots, and short README GIF preview when relevant product/showcase inputs change; it can also be run manually.
+The browser suite covers the critical BOT and sequential Two Players flows, including Dealer hole-card visibility and keyboard behavior. The finalized release passed 47 unit/component tests and 5 Playwright specs. To record the approved showcase flow locally, run `npm run showcase:prepare`; it starts Vite when needed, keeps the raw WebM, and produces a GitHub-compatible H.264 MP4. The **Publish Showcase** workflow performs the same capture in GitHub Actions and regenerates the canonical MP4, screenshots, and short README GIF preview when relevant product/showcase inputs change; it can also be run manually.
 
 ---
 
