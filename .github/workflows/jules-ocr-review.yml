@@ -18,8 +18,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Dispatch Jules OpenCodeReview task
-        uses: actions/github-script@v7
+      - name: Prepare Jules OpenCodeReview dispatch
+        id: prepare
+        uses: actions/github-script@v8
         with:
           script: |
             const owner = context.repo.owner;
@@ -81,16 +82,19 @@ jobs:
                   state_reason: "completed",
                 });
               }
+              core.setOutput("should-trigger", "false");
               core.info("PR closed; dispatch issue cleaned up.");
               return;
             }
 
             if (pr.draft) {
+              core.setOutput("should-trigger", "false");
               core.info("Draft PR; Jules review is skipped until ready_for_review.");
               return;
             }
 
             if (pr.head.repo.full_name !== `${owner}/${repo}`) {
+              core.setOutput("should-trigger", "false");
               core.warning(
                 "Fork PR detected; automatic Jules dispatch is disabled to protect the account task quota.",
               );
@@ -132,7 +136,7 @@ jobs:
 
             let issue;
             if (existing) {
-              await github.rest.issues.update({
+              const updated = await github.rest.issues.update({
                 owner,
                 repo,
                 issue_number: existing.number,
@@ -141,7 +145,7 @@ jobs:
                 state: "open",
                 labels: [reviewLabel],
               });
-              issue = existing;
+              issue = updated.data;
             } else {
               const created = await github.rest.issues.create({
                 owner,
@@ -153,29 +157,15 @@ jobs:
               issue = created.data;
             }
 
-            // Add the trigger label last. Re-adding it on every PR revision
-            // creates a fresh Jules task while reusing one dispatch issue per PR.
-            try {
-              await github.rest.issues.removeLabel({
-                owner,
-                repo,
-                issue_number: issue.number,
-                name: triggerLabel,
-              });
-            } catch (error) {
-              if (error.status !== 404) throw error;
-            }
-
-            await github.rest.issues.addLabels({
-              owner,
-              repo,
-              issue_number: issue.number,
-              labels: [triggerLabel],
-            });
+            // The normal GITHUB_TOKEN intentionally prepares the issue only.
+            // The next step adds "jules" with a user token so the Jules GitHub
+            // App sees a user-authored label event and consumes the user's plan.
+            core.setOutput("issue-number", String(issue.number));
+            core.setOutput("should-trigger", "true");
 
             const prCommentMarker = "<!-- jules-ocr-dispatch -->";
             const commentBody = `${prCommentMarker}
-            Jules + OpenCodeReview review dispatched for \`${shortSha}\`: #${issue.number}`;
+            Jules + OpenCodeReview review prepared for \`${shortSha}\`: #${issue.number}`;
 
             const { data: comments } = await github.rest.issues.listComments({
               owner,
@@ -206,4 +196,28 @@ jobs:
               });
             }
 
-            core.notice(`Jules review dispatched through issue #${issue.number}.`);
+      - name: Verify user trigger token
+        if: steps.prepare.outputs.should-trigger == 'true'
+        shell: bash
+        env:
+          JULES_GITHUB_TOKEN: ${{ secrets.JULES_GITHUB_TOKEN }}
+        run: |
+          if [ -z "$JULES_GITHUB_TOKEN" ]; then
+            echo "::error::Missing JULES_GITHUB_TOKEN. Add a fine-grained GitHub PAT for your account, scoped to this repository with Issues: Read and write. This is only used to add the 'jules' label; no Jules API key is used."
+            exit 1
+          fi
+
+      - name: Trigger Jules with user identity
+        if: steps.prepare.outputs.should-trigger == 'true'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.JULES_GITHUB_TOKEN }}
+          script: |
+            const issueNumber = Number("${{ steps.prepare.outputs.issue-number }}");
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ["jules"],
+            });
+            core.notice(`Jules review triggered through issue #${issueNumber} using the user's GitHub identity.`);
