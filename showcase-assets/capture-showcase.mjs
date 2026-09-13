@@ -180,7 +180,7 @@ try {
   let hostWs = null;
   let guestWs = null;
 
-  await page.routeWebSocket(/.*\\/ws.*/, (ws) => {
+  await page.routeWebSocket(/.*\/ws.*/, (ws) => {
     hostWs = ws;
     ws.onMessage((message) => {
       try {
@@ -197,7 +197,7 @@ try {
 
   const guestContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const guestPage = await guestContext.newPage();
-  await guestPage.routeWebSocket(/.*\\/ws.*/, (ws) => {
+  await guestPage.routeWebSocket(/.*\/ws.*/, (ws) => {
     guestWs = ws;
     ws.onMessage((message) => {
       try {
