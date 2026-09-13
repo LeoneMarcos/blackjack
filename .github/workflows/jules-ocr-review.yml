@@ -1,0 +1,209 @@
+name: Jules OCR Review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, closed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: jules-ocr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Dispatch Jules OpenCodeReview task
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const marker = `<!-- jules-ocr-review:pr=${pr.number} -->`;
+            const reviewLabel = "jules-review";
+            const triggerLabel = "jules";
+
+            async function ensureLabel(name, color, description) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  owner,
+                  repo,
+                  name,
+                  color,
+                  description,
+                });
+              }
+            }
+
+            async function findDispatchIssue() {
+              const { data: issues } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                state: "all",
+                labels: reviewLabel,
+                per_page: 100,
+              });
+
+              return issues.find(
+                (issue) => !issue.pull_request && issue.body?.includes(marker),
+              );
+            }
+
+            await ensureLabel(
+              reviewLabel,
+              "5319e7",
+              "Automated Jules + OpenCodeReview review dispatch",
+            );
+            await ensureLabel(
+              triggerLabel,
+              "4285f4",
+              "Triggers a Jules task through the Jules GitHub App",
+            );
+
+            const existing = await findDispatchIssue();
+
+            if (context.payload.action === "closed") {
+              if (existing && existing.state !== "closed") {
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: existing.number,
+                  state: "closed",
+                  state_reason: "completed",
+                });
+              }
+              core.info("PR closed; dispatch issue cleaned up.");
+              return;
+            }
+
+            if (pr.draft) {
+              core.info("Draft PR; Jules review is skipped until ready_for_review.");
+              return;
+            }
+
+            if (pr.head.repo.full_name !== `${owner}/${repo}`) {
+              core.warning(
+                "Fork PR detected; automatic Jules dispatch is disabled to protect the account task quota.",
+              );
+              return;
+            }
+
+            const shortSha = pr.head.sha.slice(0, 7);
+            const title = `[Jules OCR] Review PR #${pr.number} @ ${shortSha}`;
+            const body = `${marker}
+            ## Review target
+
+            - Pull request: #${pr.number}
+            - Base: \`${pr.base.ref}\`
+            - Head: \`${pr.head.ref}\`
+            - Expected head SHA: \`${pr.head.sha}\`
+
+            ## Task
+
+            Perform a **review-only** code review of PR #${pr.number} using **OpenCodeReview Delegation Mode** with Jules as the host model.
+
+            Do not configure or use an external LLM API. The purpose of delegation mode is to reuse the Jules model/task allowance attached to this GitHub App session.
+
+            Do **not** modify repository files, create commits, publish a branch, or open another pull request.
+
+            ### Required procedure
+
+            1. Fetch the target refs and verify the reviewed head resolves to \`${pr.head.sha}\`.
+            2. Install the latest OCR CLI if needed:
+               \`npm install -g @alibaba-group/open-code-review@latest\`
+            3. Run the delegation scope preview against the PR:
+               \`ocr delegate preview --from origin/${pr.base.ref} --to origin/${pr.head.ref} --format json\`
+               If this installed OCR version does not support \`--format json\`, rerun without that flag.
+            4. Use \`ocr delegate rule <paths...>\` for the reviewable files returned by the preview.
+            5. Inspect the actual git diff plus any full files/tests needed for context, then perform the review yourself as the host agent.
+            6. Report only actionable **critical, high, or medium** confidence findings. For each finding include severity, file/line, why it is a problem, and the smallest safe fix.
+            7. If there are no critical/high/medium findings, state that explicitly.
+
+            Post the final review result back to this issue. Keep this task review-only.`;
+
+            let issue;
+            if (existing) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existing.number,
+                title,
+                body,
+                state: "open",
+                labels: [reviewLabel],
+              });
+              issue = existing;
+            } else {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body,
+                labels: [reviewLabel],
+              });
+              issue = created.data;
+            }
+
+            // Add the trigger label last. Re-adding it on every PR revision
+            // creates a fresh Jules task while reusing one dispatch issue per PR.
+            try {
+              await github.rest.issues.removeLabel({
+                owner,
+                repo,
+                issue_number: issue.number,
+                name: triggerLabel,
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: issue.number,
+              labels: [triggerLabel],
+            });
+
+            const prCommentMarker = "<!-- jules-ocr-dispatch -->";
+            const commentBody = `${prCommentMarker}
+            Jules + OpenCodeReview review dispatched for \`${shortSha}\`: #${issue.number}`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: pr.number,
+              per_page: 100,
+            });
+
+            const previous = comments.find(
+              (comment) =>
+                comment.user?.login === "github-actions[bot]" &&
+                comment.body?.includes(prCommentMarker),
+            );
+
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: previous.id,
+                body: commentBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pr.number,
+                body: commentBody,
+              });
+            }
+
+            core.notice(`Jules review dispatched through issue #${issue.number}.`);
