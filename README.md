@@ -67,7 +67,7 @@ The interface uses a continuous charcoal card table, ivory playing cards, restra
 
 [![Blackjack animated showcase preview](./showcase-assets/showcase-preview.gif)](https://raw.githubusercontent.com/LeoneMarcos/blackjack/main/showcase-assets/blackjack-showcase.mp4)
 
-The animated preview shows a short excerpt of bot play, local two-player mode, and round feedback. Open the full video below for the complete flow.
+The animated preview shows a short excerpt of bot play, local two-player mode, Online P2P connection/gameplay, and round feedback. Open the full video below for the complete flow.
 
 [![Showcase Video](https://img.shields.io/badge/Showcase-Video-2f2f2f?style=flat-square&logo=github&logoColor=white)](https://raw.githubusercontent.com/LeoneMarcos/blackjack/main/showcase-assets/blackjack-showcase.mp4)
 
