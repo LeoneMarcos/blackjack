@@ -2,7 +2,7 @@ name: Jules OCR Review
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize, ready_for_review, closed]
+    types: [opened, ready_for_review, closed]
 
 permissions:
   contents: read
@@ -17,8 +17,7 @@ jobs:
   relay-result:
     if: >-
       github.event.action == 'opened' &&
-      startsWith(github.event.pull_request.head.ref, 'chore/jules-ocr-review-') &&
-      startsWith(github.event.pull_request.title, 'Review PR #')
+      startsWith(github.event.pull_request.head.ref, 'chore/jules-ocr-review-')
     runs-on: ubuntu-latest
 
     steps:
@@ -185,6 +184,15 @@ jobs:
               return;
             }
 
+            // Hard rule: one Jules task per source PR.
+            if (existing) {
+              core.setOutput("should-trigger", "false");
+              core.info(
+                `Jules was already dispatched once for PR #${pr.number} via issue #${existing.number}; skipping.`,
+              );
+              return;
+            }
+
             const shortSha = pr.head.sha.slice(0, 7);
             const title = `[Jules OCR] Review PR #${pr.number} @ ${shortSha}`;
             const body = `${marker}
@@ -218,28 +226,14 @@ jobs:
 
             Keep this task review-only and ensure the complete report is present in the final result PR body.`;
 
-            let issue;
-            if (existing) {
-              const updated = await github.rest.issues.update({
-                owner,
-                repo,
-                issue_number: existing.number,
-                title,
-                body,
-                state: "open",
-                labels: [reviewLabel],
-              });
-              issue = updated.data;
-            } else {
-              const created = await github.rest.issues.create({
-                owner,
-                repo,
-                title,
-                body,
-                labels: [reviewLabel],
-              });
-              issue = created.data;
-            }
+            const created = await github.rest.issues.create({
+              owner,
+              repo,
+              title,
+              body,
+              labels: [reviewLabel],
+            });
+            const issue = created.data;
 
             // The normal GITHUB_TOKEN prepares the issue only. Jules did not
             // react to a github-actions[bot] label event in the live test.
@@ -294,10 +288,12 @@ jobs:
       - name: Trigger Jules with user identity
         if: steps.prepare.outputs.should-trigger == 'true'
         uses: actions/github-script@v8
+        env:
+          ISSUE_NUMBER: ${{ steps.prepare.outputs.issue-number }}
         with:
           github-token: ${{ secrets.JULES_GITHUB_TOKEN }}
           script: |
-            const issueNumber = Number("${{ steps.prepare.outputs.issue-number }}");
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
