@@ -214,6 +214,11 @@ try {
     ws.send(JSON.stringify({ type: 'peer_joined', role: 'host' }));
   });
 
+  // Keep the host-owned deck deterministic before HostAuthorityManager creates it.
+  await page.evaluate(() => {
+    Math.random = () => 0.1;
+  });
+
   await page.getByRole('button', { name: 'Online P2P', exact: true }).click();
   await page.waitForTimeout(700);
   await page.getByRole('button', { name: 'Create Room', exact: true }).click();
@@ -233,11 +238,6 @@ try {
 
   await guestPage.getByRole('button', { name: /Ready|Click Ready/ }).click();
   await page.getByRole('button', { name: /Ready|Click Ready/ }).click();
-
-  // Keep the showcase round deterministic so both player turns are visible.
-  await page.evaluate(() => {
-    Math.random = () => 0.1;
-  });
 
   const onlineDealBtn = page.getByRole('button', { name: /Deal hand/ });
   await onlineDealBtn.waitFor({ state: 'visible', timeout: 5_000 });
