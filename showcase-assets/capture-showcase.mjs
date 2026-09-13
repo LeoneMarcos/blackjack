@@ -202,11 +202,11 @@ try {
   await page.waitForTimeout(900);
   await checkpoint('online-cards');
 
-  const hostStandBtn = page.getByRole('button', { name: 'Stand for Player 1', exact: true });
+  const hostStandBtn = page.getByRole('button', { name: /Stand for Player 1/ });
   await hostStandBtn.waitFor({ state: 'visible', timeout: 5_000 });
   await hostStandBtn.click();
 
-  const guestStandBtn = guestPage.getByRole('button', { name: 'Stand for Player 2', exact: true });
+  const guestStandBtn = guestPage.getByRole('button', { name: /Stand for Player 2/ });
   const guestTurnDeadline = Date.now() + 5_000;
   while (!(await guestStandBtn.isEnabled().catch(() => false)) && Date.now() < guestTurnDeadline) {
     await guestPage.waitForTimeout(100);
