@@ -16,6 +16,101 @@ const serverURL = new URL(baseURL);
 let ownedServer;
 const isServerReady = async () => {
   try {
+  // Take 1 — Online P2P gameplay with real WebRTC and in-process signaling relay
+  let hostWs = null;
+  let guestWs = null;
+
+  await page.routeWebSocket(/.*\/ws.*/, (ws) => {
+    hostWs = ws;
+    ws.onMessage((message) => {
+      try {
+        const parsed = JSON.parse(typeof message === 'string' ? message : message.toString());
+        if (parsed.type === 'signal' && guestWs) {
+          guestWs.send(JSON.stringify({ type: 'signal', data: parsed.data }));
+        }
+      } catch {
+        // Ignore malformed signaling frames in showcase capture.
+      }
+    });
+    ws.send(JSON.stringify({ type: 'assigned_role', role: 'host', roomId: 'P2P1' }));
+  });
+
+  const guestContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const guestPage = await guestContext.newPage();
+  await guestPage.routeWebSocket(/.*\/ws.*/, (ws) => {
+    guestWs = ws;
+    ws.onMessage((message) => {
+      try {
+        const parsed = JSON.parse(typeof message === 'string' ? message : message.toString());
+        if (parsed.type === 'signal' && hostWs) {
+          hostWs.send(JSON.stringify({ type: 'signal', data: parsed.data }));
+        }
+      } catch {
+        // Ignore malformed signaling frames in showcase capture.
+      }
+    });
+    ws.send(JSON.stringify({ type: 'assigned_role', role: 'guest', roomId: 'P2P1' }));
+    hostWs?.send(JSON.stringify({ type: 'peer_joined', role: 'guest' }));
+    ws.send(JSON.stringify({ type: 'peer_joined', role: 'host' }));
+  });
+
+  // Match the proven E2E setup: seed before the first navigation so the host-owned
+  // deck is deterministic and both player turns remain visible in the showcase.
+  await page.addInitScript(() => {
+    Math.random = () => 0.1;
+  });
+
+  await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(1_000);
+
+  await page.getByRole('button', { name: 'Online P2P', exact: true }).click();
+  await page.waitForTimeout(700);
+  await page.getByRole('button', { name: 'Create Room', exact: true }).click();
+  await page.getByText('Waiting for Player 2 to join...').waitFor({ state: 'visible', timeout: 5_000 });
+  await checkpoint('online-waiting');
+
+  await guestPage.goto(baseURL, { waitUntil: 'domcontentloaded' });
+  await guestPage.evaluate(() => document.fonts.ready);
+  await guestPage.getByRole('button', { name: 'Online P2P', exact: true }).click();
+  await guestPage.getByLabel('Room code').fill('P2P1');
+  await guestPage.getByRole('button', { name: 'Join', exact: true }).click();
+
+  await page.getByText('Connected', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 });
+  await guestPage.getByText('Connected', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 });
+  await page.waitForTimeout(1_000);
+  await checkpoint('online-connected');
+
+  await guestPage.getByRole('button', { name: /Ready|Click Ready/ }).click();
+  await page.getByRole('button', { name: /Ready|Click Ready/ }).click();
+
+  const onlineDealBtn = page.getByRole('button', { name: /Deal hand/ });
+  await onlineDealBtn.waitFor({ state: 'visible', timeout: 5_000 });
+  await onlineDealBtn.click();
+  await page.getByLabel('Face-down card').waitFor({ state: 'visible', timeout: 5_000 });
+  await page.waitForTimeout(900);
+  await checkpoint('online-cards');
+
+  const hostStandBtn = page.getByRole('button', { name: 'Stand for Player 1', exact: true });
+  await hostStandBtn.waitFor({ state: 'visible', timeout: 5_000 });
+  await hostStandBtn.click();
+
+  const guestStandBtn = guestPage.getByRole('button', { name: 'Stand for Player 2', exact: true });
+  const guestTurnDeadline = Date.now() + 5_000;
+  while (!(await guestStandBtn.isEnabled().catch(() => false)) && Date.now() < guestTurnDeadline) {
+    await guestPage.waitForTimeout(100);
+  }
+  if (!(await guestStandBtn.isEnabled().catch(() => false))) {
+    throw new Error('Player 2 did not become active during Online P2P showcase.');
+  }
+  await guestStandBtn.click();
+
+  await waitForRoundComplete();
+  await page.getByLabel('Face-down card').waitFor({ state: 'hidden', timeout: 5_000 });
+  await page.waitForTimeout(1_200);
+  await checkpoint('online-result');
+  await guestContext.close();
+
     const response = await fetch(serverURL);
     return response.ok;
   } catch {
@@ -175,96 +270,6 @@ try {
   await waitForRoundComplete();
   await page.waitForTimeout(1_500);
   await checkpoint('local-result');
-
-  // Take 4 — Online P2P gameplay with real WebRTC and in-process signaling relay
-  let hostWs = null;
-  let guestWs = null;
-
-  await page.routeWebSocket(/.*\/ws.*/, (ws) => {
-    hostWs = ws;
-    ws.onMessage((message) => {
-      try {
-        const parsed = JSON.parse(typeof message === 'string' ? message : message.toString());
-        if (parsed.type === 'signal' && guestWs) {
-          guestWs.send(JSON.stringify({ type: 'signal', data: parsed.data }));
-        }
-      } catch {
-        // Ignore malformed signaling frames in showcase capture.
-      }
-    });
-    ws.send(JSON.stringify({ type: 'assigned_role', role: 'host', roomId: 'P2P1' }));
-  });
-
-  const guestContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-  const guestPage = await guestContext.newPage();
-  await guestPage.routeWebSocket(/.*\/ws.*/, (ws) => {
-    guestWs = ws;
-    ws.onMessage((message) => {
-      try {
-        const parsed = JSON.parse(typeof message === 'string' ? message : message.toString());
-        if (parsed.type === 'signal' && hostWs) {
-          hostWs.send(JSON.stringify({ type: 'signal', data: parsed.data }));
-        }
-      } catch {
-        // Ignore malformed signaling frames in showcase capture.
-      }
-    });
-    ws.send(JSON.stringify({ type: 'assigned_role', role: 'guest', roomId: 'P2P1' }));
-    hostWs?.send(JSON.stringify({ type: 'peer_joined', role: 'guest' }));
-    ws.send(JSON.stringify({ type: 'peer_joined', role: 'host' }));
-  });
-
-  // Keep the host-owned deck deterministic before HostAuthorityManager creates it.
-  await page.evaluate(() => {
-    Math.random = () => 0.1;
-  });
-
-  await page.getByRole('button', { name: 'Online P2P', exact: true }).click();
-  await page.waitForTimeout(700);
-  await page.getByRole('button', { name: 'Create Room', exact: true }).click();
-  await page.getByText('Waiting for Player 2 to join...').waitFor({ state: 'visible', timeout: 5_000 });
-  await checkpoint('online-waiting');
-
-  await guestPage.goto(baseURL, { waitUntil: 'domcontentloaded' });
-  await guestPage.evaluate(() => document.fonts.ready);
-  await guestPage.getByRole('button', { name: 'Online P2P', exact: true }).click();
-  await guestPage.getByLabel('Room code').fill('P2P1');
-  await guestPage.getByRole('button', { name: 'Join', exact: true }).click();
-
-  await page.getByText('Connected', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 });
-  await guestPage.getByText('Connected', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 });
-  await page.waitForTimeout(1_000);
-  await checkpoint('online-connected');
-
-  await guestPage.getByRole('button', { name: /Ready|Click Ready/ }).click();
-  await page.getByRole('button', { name: /Ready|Click Ready/ }).click();
-
-  const onlineDealBtn = page.getByRole('button', { name: /Deal hand/ });
-  await onlineDealBtn.waitFor({ state: 'visible', timeout: 5_000 });
-  await onlineDealBtn.click();
-  await page.getByLabel('Face-down card').waitFor({ state: 'visible', timeout: 5_000 });
-  await page.waitForTimeout(900);
-  await checkpoint('online-cards');
-
-  const hostStandBtn = page.getByRole('button', { name: 'Stand for Player 1', exact: true });
-  await hostStandBtn.waitFor({ state: 'visible', timeout: 5_000 });
-  await hostStandBtn.click();
-
-  const guestStandBtn = guestPage.getByRole('button', { name: 'Stand for Player 2', exact: true });
-  const guestTurnDeadline = Date.now() + 5_000;
-  while (!(await guestStandBtn.isEnabled().catch(() => false)) && Date.now() < guestTurnDeadline) {
-    await guestPage.waitForTimeout(100);
-  }
-  if (!(await guestStandBtn.isEnabled().catch(() => false))) {
-    throw new Error('Player 2 did not become active during Online P2P showcase.');
-  }
-  await guestStandBtn.click();
-
-  await waitForRoundComplete();
-  await page.getByLabel('Face-down card').waitFor({ state: 'hidden', timeout: 5_000 });
-  await page.waitForTimeout(1_200);
-  await checkpoint('online-result');
-  await guestContext.close();
 
   const mobileContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
