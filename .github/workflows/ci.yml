@@ -54,6 +54,12 @@ jobs:
       - name: Run Playwright E2E
         run: npm run test:e2e
 
+      - name: Build Docker image with signaling build argument and verify bundle
+        run: |
+          docker build --build-arg VITE_SIGNALING_URL=wss://signaling.example.invalid -t blackjack-signaling-test .
+          docker run --rm blackjack-signaling-test sh -c "grep -rq 'wss://signaling.example.invalid' /usr/share/nginx/html/assets && echo 'Deterministic check passed: VITE_SIGNALING_URL is embedded in container bundle' || (echo 'Deterministic check failed: signaling URL missing from bundle' && exit 1)"
+          docker rmi blackjack-signaling-test
+
       - name: Build and start Docker container
         run: docker compose up -d --build
 

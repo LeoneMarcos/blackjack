@@ -91,7 +91,7 @@ Technical decisions should prioritize:
 | Validation     | TypeScript compiler and game tests | TypeScript `5.9.3`, Vitest `4.1.0` installed | Compile-time and behavior validation |
 | Testing        | Vitest; Playwright for E2E browser validation | Vitest `4.1.0`, Playwright `1.63.0` | Unit tests and end-to-end browser checks |
 | Hosting        | Static web host for Vite SPA; external signaling Worker deployed separately | N/A | Serve frontend and signaling as independent deployments |
-| Container      | Docker `node:22-alpine` + `nginx:1.27-alpine` | Docker 29 / Nginx 1.27-alpine | Optional frontend container preview & packaging |
+| Container      | Docker `node:22-alpine` + `nginx:1.30.4-alpine` | Docker 29 / Nginx 1.30.4-alpine | Optional frontend container preview & packaging |
 | CI/CD          | GitHub Actions | Actions `checkout@v4`, `setup-node@v4` | Automated quality gates |
 | Monitoring     | None declared | N/A | No runtime monitoring integration |
 
@@ -375,7 +375,7 @@ Every future external service must have a documented purpose, data flow, failure
 
 ## Container Packaging and Preview
 
-**Provider / Runtime:** Docker multi-stage build (`node:22-alpine` builder, `nginx:1.27-alpine` runtime) orchestrated with Docker Compose (`compose.yaml`).
+**Provider / Runtime:** Docker multi-stage build (`node:22-alpine` builder, `nginx:1.30.4-alpine` runtime) orchestrated with Docker Compose (`compose.yaml`).
 
 **Role:** Optional reproducible local packaging and preview environment for the static frontend. It does not replace canonical static hosting and does not absorb or execute the standalone `blackjack-signaling` Cloudflare Worker.
 
@@ -518,7 +518,7 @@ Tests should prioritize game behavior and critical browser flows rather than arb
 * [x] Production build (`npm run build`)
 * [x] Install Playwright Chromium (`npx playwright install --with-deps chromium`)
 * [x] Dedicated E2E tests in CI (`npm run test:e2e`)
-* [x] Docker container build and healthcheck smoke test (port 8083)
+* [x] Docker container build with `VITE_SIGNALING_URL` bundle verification and healthcheck smoke test (port 8083)
 * [ ] Deployment from this workflow
 
 ## Deployment Strategy

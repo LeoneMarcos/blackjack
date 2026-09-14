@@ -127,7 +127,7 @@ The project is structured as a client-first application that connects to a stand
 | Signaling | External `blackjack-signaling` Cloudflare Worker, Durable Objects, WebSockets |
 | Testing | Vitest 4, Playwright 1.63 |
 | Quality | ESLint 10, Prettier 3, TypeScript strict mode |
-| Container | Docker `node:22-alpine` + `nginx:1.27-alpine` (optional preview/packaging) |
+| Container | Docker `node:22-alpine` + `nginx:1.30.4-alpine` (optional preview/packaging) |
 | CI | GitHub Actions |
 
 ---
