@@ -127,7 +127,7 @@ The project is structured as a client-first application that connects to a stand
 | Signaling | External `blackjack-signaling` Cloudflare Worker, Durable Objects, WebSockets |
 | Testing | Vitest 4, Playwright 1.63 |
 | Quality | ESLint 10, Prettier 3, TypeScript strict mode |
-| Container | Docker `node:22-alpine` + `nginx:alpine` |
+| Container | Docker `node:22-alpine` + `nginx:1.27-alpine` (optional preview/packaging) |
 | CI | GitHub Actions |
 
 ---
@@ -179,7 +179,11 @@ Open two browser tabs or windows to test host creation and guest joining with ro
 
 ### Running with Docker
 
-You can build and run the game in an isolated, production-grade Nginx container:
+You can build and run the game in an isolated, production-oriented Nginx container:
+
+#### 1. Default Mode (Offline / BOT & Local Two Players)
+
+By default, the container builds without external signaling configuration, ideal for offline BOT and local Two Players gameplay:
 
 ```bash
 # Using Docker Compose (Recommended)
@@ -191,6 +195,21 @@ docker run -d -p 8083:80 --name blackjack blackjack
 ```
 
 Access the game in your browser at `http://localhost:8083`.
+
+#### 2. Online P2P Mode (With Signaling Endpoint)
+
+Because `VITE_SIGNALING_URL` is baked into the frontend bundle at build time, supply it via the `VITE_SIGNALING_URL` build argument:
+
+```bash
+# With Docker Compose
+VITE_SIGNALING_URL=wss://blackjack-signaling.<subdomain>.workers.dev docker compose up -d --build
+
+# Or with Docker build
+docker build --build-arg VITE_SIGNALING_URL=wss://blackjack-signaling.<subdomain>.workers.dev -t blackjack .
+docker run -d -p 8083:80 --name blackjack blackjack
+```
+
+> **Note:** Docker packages the static frontend bundle; it does not host or execute the standalone signaling backend, which is deployed independently on Cloudflare Workers.
 
 To stop the container:
 ```bash

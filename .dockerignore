@@ -1,6 +1,5 @@
 node_modules
 dist
-worker
 .git
 .github
 .vscode

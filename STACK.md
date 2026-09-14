@@ -91,7 +91,7 @@ Technical decisions should prioritize:
 | Validation     | TypeScript compiler and game tests | TypeScript `5.9.3`, Vitest `4.1.0` installed | Compile-time and behavior validation |
 | Testing        | Vitest; Playwright for E2E browser validation | Vitest `4.1.0`, Playwright `1.63.0` | Unit tests and end-to-end browser checks |
 | Hosting        | Static web host for Vite SPA; external signaling Worker deployed separately | N/A | Serve frontend and signaling as independent deployments |
-| Container      | Docker `node:22-alpine` + `nginx:alpine` | Docker 29 / Nginx alpine | Multi-stage containerization & local orchestration |
+| Container      | Docker `node:22-alpine` + `nginx:1.27-alpine` | Docker 29 / Nginx 1.27-alpine | Optional frontend container preview & packaging |
 | CI/CD          | GitHub Actions | Actions `checkout@v4`, `setup-node@v4` | Automated quality gates |
 | Monitoring     | None declared | N/A | No runtime monitoring integration |
 
@@ -373,12 +373,21 @@ Every future external service must have a documented purpose, data flow, failure
 
 **Provider:** Not declared in this repository.
 
+## Container Packaging and Preview
+
+**Provider / Runtime:** Docker multi-stage build (`node:22-alpine` builder, `nginx:1.27-alpine` runtime) orchestrated with Docker Compose (`compose.yaml`).
+
+**Role:** Optional reproducible local packaging and preview environment for the static frontend. It does not replace canonical static hosting and does not absorb or execute the standalone `blackjack-signaling` Cloudflare Worker.
+
+**Configuration:** The build stage accepts `ARG VITE_SIGNALING_URL=""` for optional Online P2P configuration while defaulting to an empty string for BOT and local Two Players play.
+
 ## Environments
 
 Supported environments:
 
 * Local frontend development through Vite.
 * Production frontend build through `npm run build`.
+* Optional containerized preview through Docker Compose (`http://localhost:8083`).
 * Optional local signaling by running the standalone signaling repository separately.
 * Production Online P2P using the independently deployed signaling Worker.
 
@@ -509,6 +518,7 @@ Tests should prioritize game behavior and critical browser flows rather than arb
 * [x] Production build (`npm run build`)
 * [x] Install Playwright Chromium (`npx playwright install --with-deps chromium`)
 * [x] Dedicated E2E tests in CI (`npm run test:e2e`)
+* [x] Docker container build and healthcheck smoke test (port 8083)
 * [ ] Deployment from this workflow
 
 ## Deployment Strategy
@@ -659,7 +669,7 @@ Technologies or patterns that must not be introduced without explicit architectu
 * Multiple CSS frameworks or UI component ecosystems.
 * Client-side secrets or privileged authorization logic.
 * Persistent storage for transient game state without a user-facing requirement.
-* GraphQL, Redis, Docker, microservices, or event-driven infrastructure without a demonstrated need.
+* GraphQL, Redis, microservices, or event-driven infrastructure without a demonstrated need (Docker is permitted strictly as an optional static frontend packaging and local preview mechanism; application servers or database containers remain forbidden, and Docker does not absorb the external signaling Worker).
 * Duplicate test, validation, or formatting tools that solve the same responsibility.
 * Business logic duplicated between `src/lib`, the React hook, and UI components.
 
@@ -717,6 +727,7 @@ Responsible for:
 | 2026-09-03 | Keep Playwright as a development/browser-validation dependency. | Add a full E2E framework and CI suite immediately. | Browser validation and showcase capture are useful, but current critical domain coverage is supplied by Vitest. | Enables runtime checks without adding CI complexity prematurely. |
 | 2026-09-05 | Add `@playwright/test` and a focused browser suite plus a dedicated visual-flow capture command. | Keep only ad hoc browser scripts. | The refreshed UI needs repeatable BOT/local interaction coverage and a reproducible README showcase artifact. | `test:e2e` and `showcase:prepare` are now first-class local commands. |
 | 2026-09-10 | Integrate Playwright Chromium E2E testing into CI as part of stack finalization. | Run E2E tests only locally. | Automated E2E verification checks the critical BOT and local two-player browser flows before merging to `main`. | `npm run test:e2e` is now a permanent CI gate. |
+| 2026-09-14 | Add Docker multi-stage build and Compose configuration for optional frontend packaging. | Maintain client-only Vite build without containerization. | Provides a reproducible preview and packaging environment matching Nginx static serving; accepts build arg VITE_SIGNALING_URL for optional Online P2P configuration while keeping the standalone signaling Worker decoupled. | Frontend can be run and verified in Docker with CI healthcheck validation. |
 
 ---
 
