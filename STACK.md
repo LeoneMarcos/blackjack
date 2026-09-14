@@ -91,6 +91,7 @@ Technical decisions should prioritize:
 | Validation     | TypeScript compiler and game tests | TypeScript `5.9.3`, Vitest `4.1.0` installed | Compile-time and behavior validation |
 | Testing        | Vitest; Playwright for E2E browser validation | Vitest `4.1.0`, Playwright `1.63.0` | Unit tests and end-to-end browser checks |
 | Hosting        | Static web host for Vite SPA; external signaling Worker deployed separately | N/A | Serve frontend and signaling as independent deployments |
+| Container      | Docker `node:22-alpine` + `nginx:alpine` | Docker 29 / Nginx alpine | Multi-stage containerization & local orchestration |
 | CI/CD          | GitHub Actions | Actions `checkout@v4`, `setup-node@v4` | Automated quality gates |
 | Monitoring     | None declared | N/A | No runtime monitoring integration |
 

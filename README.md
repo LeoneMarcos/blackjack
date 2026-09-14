@@ -127,6 +127,7 @@ The project is structured as a client-first application that connects to a stand
 | Signaling | External `blackjack-signaling` Cloudflare Worker, Durable Objects, WebSockets |
 | Testing | Vitest 4, Playwright 1.63 |
 | Quality | ESLint 10, Prettier 3, TypeScript strict mode |
+| Container | Docker `node:22-alpine` + `nginx:alpine` |
 | CI | GitHub Actions |
 
 ---
@@ -173,6 +174,28 @@ npm run dev
 ```
 
 Open two browser tabs or windows to test host creation and guest joining with room codes.
+
+---
+
+### Running with Docker
+
+You can build and run the game in an isolated, production-grade Nginx container:
+
+```bash
+# Using Docker Compose (Recommended)
+docker compose up -d
+
+# Or build and run directly with Docker
+docker build -t blackjack .
+docker run -d -p 8083:80 --name blackjack blackjack
+```
+
+Access the game in your browser at `http://localhost:8083`.
+
+To stop the container:
+```bash
+docker compose down
+```
 
 ---
 
