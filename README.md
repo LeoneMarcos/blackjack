@@ -41,7 +41,7 @@
 </p>
 
 <p align="center">
-  <img src="./showcase-assets/screenshots/blackjack-hero.png" alt="Blackjack Table Interface" width="100%" />
+  <img src="./showcase-assets/screenshots/blackjack-online-cards.png" alt="Blackjack Table Interface" width="100%" />
 </p>
 
 ---
