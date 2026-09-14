@@ -20,7 +20,10 @@
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"vite.config.ts\" \"playwright.config.ts\" \"eslint.config.js\" \"package.json\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"vite.config.ts\" \"playwright.config.ts\" \"eslint.config.js\" \"package.json\"",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "docker:build": "docker build -t blackjack .",
+    "docker:run": "docker run -d -p 8083:80 --name blackjack blackjack",
+    "docker:compose": "docker compose up -d"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
